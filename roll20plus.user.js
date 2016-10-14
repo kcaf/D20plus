@@ -3,6 +3,8 @@
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
 // @version      0.1.0
+// @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
+// @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
 // @author       kcaf
 // @match        https://app.roll20.net/editor/
