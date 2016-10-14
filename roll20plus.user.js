@@ -45,10 +45,10 @@ var Roll20Plus = function() {
     d20plus.hpAllowEdit = function() {
         $("#initiativewindow").on("click", ".hp.editable", function() {
             if ($(this).find("input").length > 0)
-                return void $(this).find("input").focus().select();
+                return void $(this).find("input").focus();
             var val = $.trim($(this).text());
             $(this).html("<input type='text' value='" + val + "'/>");
-            $(this).find("input").focus().select();
+            $(this).find("input").focus();
         });
         $("#initiativewindow").on("keydown", ".hp.editable", function(event) {
             if (event.which == 13) {
@@ -212,4 +212,5 @@ var Roll20Plus = function() {
 };
 
 // Inject
-unsafeWindow.eval("(" + Roll20Plus.toString() + ")()");
+if(window.top == window.self)
+    unsafeWindow.eval("(" + Roll20Plus.toString() + ")()");
