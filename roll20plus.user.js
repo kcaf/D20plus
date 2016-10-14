@@ -23,6 +23,14 @@ var Roll20Plus = function() {
 
         d20plus.log("> Begin");
 
+        // Firebase is going to deny your changes if you're not GM. Better to fail gracefully.
+        if(window.is_gm) {
+            d20plus.log("> Is GM");
+        } else {
+            d20plus.log("> Not GM. Exiting.");
+            return;
+        }
+
         d20plus.log("> Add CSS");
         _.each(d20plus.cssRules, function(r) {
             d20plus.addCSS(window.document.styleSheets[window.document.styleSheets.length-1], r.s, r.r);
