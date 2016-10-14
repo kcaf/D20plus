@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.1.0-alpha
+// @version      v0.1.0-alpha
 // @description  Roll20 Plus
 // @author       kcaf
 // @match        https://app.roll20.net/editor/
@@ -10,8 +10,11 @@
 // @run-at       document-start
 // ==/UserScript==
 
-var Roll20Plus = function() {
-    var d20plus = {};
+var Roll20Plus = function(version) {
+    var d20plus = {
+        sheet: "ogl",
+        version: version
+    };
 
     // Window loaded
     window.onload = function() {
@@ -21,7 +24,11 @@ var Roll20Plus = function() {
         window.d20ext.finalPageLoad();
         window.d20ext.finalPageLoad = function(){};
 
-        d20plus.log("> Begin");
+        d20plus.log("> Begin (" + d20plus.version + ")");
+
+        d20plus.log("> Add Settings");
+        $("#mysettings > .content").append(d20plus.settingsHtml);
+        $("#mysettings > .content select.d20plus-sheet").on("change", d20plus.setSheet);
 
         // Firebase is going to deny your changes if you're not GM. Better to fail gracefully.
         if(window.is_gm) {
@@ -38,10 +45,11 @@ var Roll20Plus = function() {
 
         d20plus.log("> Initiative Tracker");
         $("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
-        $("#tmpl_initiativecharacter").html(d20plus.initiativeTemplate);
+        $("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
         d20plus.hpAllowEdit();
     };
 
+    // Create editable HP variable and autocalculate + or -
     d20plus.hpAllowEdit = function() {
         $("#initiativewindow").on("click", ".hp.editable", function() {
             if ($(this).find("input").length > 0)
@@ -78,8 +86,8 @@ var Roll20Plus = function() {
     };
 
     // Cross-browser add CSS rule
-    d20plus.addCSS = function (sheet, selector, rules, index) {
-        index = index || sheet.cssRules.length;
+    d20plus.addCSS = function (sheet, selector, rules) {
+        index = sheet.cssRules.length;
         if("insertRule" in sheet) {
             sheet.insertRule(selector + "{" + rules + "}", index);
         }
@@ -112,7 +120,48 @@ var Roll20Plus = function() {
         return d20.textchat.diceengine.random(int);
     };
 
+    // Change character sheet formulas
+    d20plus.setSheet = function () {
+        var r = /^[a-z]+$/,
+            s = $(this).val().match(r)[0];
+        d20plus.sheet = s in d20plus.formulas ? s : "ogl";
+        $("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
+        d20.Campaign.initiativewindow._rebuildInitiativeList();
+    };
+
+    // Return Initiative Tracker template with formulas
+    d20plus.getInitTemplate = function() {
+        var html = d20plus.initiativeTemplate;
+        _.each(d20plus.formulas[d20plus.sheet], function(v,i) {
+            html = html.replace("||"+i+"||", v);
+        });
+        return html;
+    }
+
     /*  */
+    d20plus.formulas = {
+        ogl: {
+            "AC": "@{ac}",
+            "HP": "@{hp}",
+            "PP": "@{passive_wisdom}"
+        },
+        community: {
+            "AC": "@{AC}",
+            "HP": "@{HP}",
+            "PP": "10 + @{perception}"
+        }
+    };
+
+    d20plus.settingsHtml = `<hr>
+    <h3>Roll20 Plus ` + d20plus.version + `</h3>
+    <p>
+      <label>Select your character sheet</label>
+      <select class="d20plus-sheet" style="width: 150px;">
+        <option value="ogl">5th Edition ( OGL by Roll20 )</option>
+        <option value="community">5th Edition (Community Contributed)</option>
+      </select>
+    </p>`;
+
     d20plus.cssRules = [
         {s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp",
             r: "font-size: 25px;font-weight: bold;text-align: right;float: right;padding: 5px;width: 10%;min-height: 20px;"},
@@ -131,21 +180,24 @@ var Roll20Plus = function() {
       <span class="hp" alt="HP" title="HP">HP</span>
     </div>`;
 
-    d20plus.initiativeTemplate = `<li class='token <$ if(this.layer == "gmlayer") { $>gmlayer<$ } $>' data-tokenid='<$!this.id$>' data-currentindex='<$!this.idx$>'>
+    d20plus.initiativeTemplate = `<script id="tmpl_initiativecharacter" type="text/html">
+    <![CDATA[
+      <li class='token <$ if(this.layer == "gmlayer") { $>gmlayer<$ } $>' data-tokenid='<$!this.id$>' data-currentindex='<$!this.idx$>'>
       <span alt='Initiative' title='Initiative' class='initiative <$ if(this.iseditable) { $>editable<$ } $>'>
       <$!this.pr$>
       </span>
-      <$ this.character = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(this.id).character; $>
-      <span class='pp' alt='Passive Perception' title='Passive Perception'><$!this.character.autoCalcFormula('(10+@{perception_bonus}+@{passiveperceptionmod})')$></span>
-      <span class='ac' alt='AC' title='AC'><$!this.character.autoCalcFormula('@{ac}')$></span>
-      <span class='hp editable' alt='HP' title='HP'><$!this.character.autoCalcFormula('@{hp}')$></span>
+      <$ var char = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(this.id).character; $>
+      <span class='pp' alt='Passive Perception' title='Passive Perception'><$!char.autoCalcFormula('||PP||')$></span>
+      <span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
+      <span class='hp editable' alt='HP' title='HP'><$!char.autoCalcFormula('||HP||')$></span>
       <$ if(this.avatar) { $><img src='<$!this.avatar$>' /><$ } $>
       <span class='name'><$!this.name$></span>
       <div class='clear' style='height: 0px;'></div>
       <div class='controls'>
         <span class='pictos remove'>#</span>
       </div>
-      </li>`;
+      </li>
+    ]]>`;
     /*  */
 
     /* object.watch polyfill by Eli Grey, http://eligrey.com */
@@ -213,4 +265,4 @@ var Roll20Plus = function() {
 
 // Inject
 if(window.top == window.self)
-    unsafeWindow.eval("(" + Roll20Plus.toString() + ")()");
+    unsafeWindow.eval("(" + Roll20Plus.toString() + ")('" + GM_info.script.version + "')");
