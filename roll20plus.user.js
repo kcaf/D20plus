@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      v0.1.0-alpha
+// @version      0.1.0
 // @description  Roll20 Plus
 // @author       kcaf
 // @match        https://app.roll20.net/editor/
