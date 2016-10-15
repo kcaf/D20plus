@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.5.0
+// @version      2.6.0
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
@@ -23,10 +23,6 @@ var Roll20Plus = function(version) {
 	window.onload = function() {
 		window.unwatch("d20");
 
-		d20plus.log("> Force Load");
-		window.d20ext.finalPageLoad();
-		window.d20ext.finalPageLoad = function() {};
-
 		var checkLoaded = setInterval(function() {
 			if (!$("#loading-overlay").is(":visible")) {
 				clearInterval(checkLoaded);
@@ -35,7 +31,7 @@ var Roll20Plus = function(version) {
 		}, 1000);
 	};
 
-	// Page fully loaded
+	// Page fully loaded and visible
 	d20plus.Init = function() {
 		d20plus.log("> Init (v" + d20plus.version + ")");
 
@@ -61,6 +57,7 @@ var Roll20Plus = function(version) {
 		d20plus.log("> Initiative Tracker");
 		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
 		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
+		d20.Campaign.initiativewindow._rebuildInitiativeList();
 		d20plus.hpAllowEdit();
 
 		d20plus.log("> Bind Events");
@@ -77,7 +74,7 @@ var Roll20Plus = function(version) {
 							d20plus.randomRoll(hpformula, function(result) {
 								console.log(e);
 								e.attributes.bar3_value = result.total;
-                                e.attributes.bar3_max = result.total;
+								e.attributes.bar3_max = result.total;
 								d20plus.log("> Rolled HP for [" + character.get("name") + "]");
 							}, function(error) {
 								d20plus.log("> Error Rolling HP Dice");
@@ -88,6 +85,34 @@ var Roll20Plus = function(version) {
 				}
 			}
 		});
+	};
+
+	// Does a monster already exist with this name
+	d20plus.monsterExists = function(folderObj, folderId, name) {
+		var container = d20plus.folderContainer(folderObj, folderId, 0),
+			result = false;
+		$.each(container.i, function(i,v) {
+			var char = d20.Campaign.characters._byId[v];
+			if(char && char.get("name") == name)
+				result = true;
+		});
+		return result;
+	};
+
+	// Get folder container
+	d20plus.folderContainer = function(journal, id, i) {
+		if (i > 99)
+			return void 0;
+		var n;
+		return _.each(journal, function(e) {
+			if (e && "object" == typeof e && e.id === id)
+				n = e;
+			else if (e && "object" == typeof e && void 0 !== e.i) {
+				var o = r(e.i, id, i + 1);
+				void 0 !== o && (n = o)
+			}
+			return n ? !1 : void 0
+		}),n;
 	};
 
 	// Insert HTML
@@ -119,9 +144,9 @@ var Roll20Plus = function(version) {
 	// Import monsters button click event
 	d20plus.buttonMonsterClicked = function() {
 		var url = window.prompt("Input the URL of the Monster XML file");
-        if (url != null) {
-        	d20plus.loadMonstersXML(url);
-        }
+		if (url != null) {
+			d20plus.loadMonstersXML(url);
+		}
 	};
 
 	// Fetch monster data from XML url
@@ -137,6 +162,7 @@ var Roll20Plus = function(version) {
 					try {
 						d20plus.importMonster(v);
 					} catch (e) {
+						console.log("I have failed you :(");
 						d20plus.log(e);
 					}
 				});
@@ -155,8 +181,8 @@ var Roll20Plus = function(version) {
 			folder = journalFolderObj.find( function (f) {return f.n == "Monsters";} );
 			if (!folder) return;
 		}
-
 		var name = data.name || "(Unknown Name)";
+		if(d20plus.monsterExists(journalFolderObj, folder.id, name)) return;
 		d20.Campaign.characters.create({
 			name: name
 		}, {
@@ -297,20 +323,21 @@ var Roll20Plus = function(version) {
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_type", current: "" });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohitrange", current: "" });
+									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 									if(damage !== "") {
-						                damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
-						                damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
-						                if(damage1.length < 2) {
-						                    onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
-						                }
-						                else if(damage1.length < 3) {
-						                    onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
-						                }
-						                else {
-						                    onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
-						                };
-						            };
-						            character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_onhit", current: onhit });
+										damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+										damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
+										if(damage1.length < 2) {
+											onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
+										}
+										else if(damage1.length < 3) {
+											onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
+										}
+										else {
+											onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
+										};
+									};
+									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_onhit", current: onhit });
 								});
 							} else {
 								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: v.name });
@@ -334,6 +361,87 @@ var Roll20Plus = function(version) {
 						});
 					}
 
+					if(data.legendary != null) {
+						if(!(data.legendary instanceof Array)) {
+							var tmp = data.legendary;
+							data.legendary = [];
+							data.legendary.push(tmp);
+						}
+						character.attribs.create({ name: "legendary_flag", current: "1" });
+						character.attribs.create({ name: "npc_legendary_actions", current: "(Unknown Number)" });
+						$.each(data.legendary, function(i,v) {
+							var newRowId = d20plus.generateRowId(),
+								actiontext = "",
+								text = "";
+							
+							var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
+							if(v.attack != null) {
+								if(!(v.attack instanceof Array)) {
+									var tmp = v.attack;
+									v.attack = [];
+									v.attack.push(tmp);
+								}
+								$.each(v.attack, function(z,x) {
+									var attack = x.split("|"),
+										name = "";
+									if(v.attack.length > 1)
+										name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
+									else 
+										name = v.name;
+									
+									var onhit = "",
+										damagetype = "",
+										damage = attack[2];
+										
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_options", current: "{{attack=1}}" });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohit", current: attack[1] });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_damage", current: damage });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: name });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_type", current: "" });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohitrange", current: "" });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
+									if(damage !== "") {
+										damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+										damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
+										if(damage1.length < 2) {
+											onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
+										}
+										else if(damage1.length < 3) {
+											onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
+										}
+										else {
+											onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
+										};
+									};
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_onhit", current: onhit });
+								});
+							} else {
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: v.name });
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: v.name });
+							}
+
+
+							if(v.text instanceof Array) {
+								$.each(v.text, function(z,x) {
+									text += (z > 0 ? "\r\n" : "") + x;
+								});
+							} else {
+								text = v.text;
+							}
+
+							var descriptionFlag = Math.max(Math.ceil(text.length/57),1);
+							character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description", current: text });
+							character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description_flag", current: descriptionFlag });
+						});
+					}
+
 					character.view._updateSheetValues();
 					var dirty = [];
 					$.each(d20.journal.customSheets.attrDeps, function(i,v){ dirty.push(i) } );
@@ -354,110 +462,110 @@ var Roll20Plus = function(version) {
 	d20plus.getXP = function(cr) {
 		var xp = "";
 		switch(cr) {
-            case "0":
-                xp = "10";
-                break;
-            case "1/8":
-                xp = "25";
-                break;
-            case "1/4":
-                xp = "50";
-                break;
-            case "1/2":
-                xp = "100";
-                break;
-            case "1":
-                xp = "200";
-                break;
-            case "2":
-                xp = "450";
-                break;
-            case "3":
-                xp = "700";
-                break;
-            case "4":
-                xp = "1100";
-                break;
-            case "5":
-                xp = "1800";
-                break;
-            case "6":
-                xp = "2300";
-                break;
-            case "7":
-                xp = "2900";
-                break;
-            case "8":
-                xp = "3900";
-                break;
-            case "9":
-                xp = "5000";
-                break;
-            case "10":
-                xp = "5900";
-                break;
-            case "11":
-                xp = "7200";
-                break;
-            case "12":
-                xp = "8400";
-                break;
-            case "13":
-                xp = "10000";
-                break;
-            case "14":
-                xp = "11500";
-                break;
-            case "15":
-                xp = "13000";
-                break;
-            case "16":
-                xp = "15000";
-                break;
-            case "17":
-                xp = "18000";
-                break;
-            case "18":
-                xp = "20000";
-                break;
-            case "19":
-                xp = "22000";
-                break;
-            case "20":
-                xp = "25000";
-                break;
-            case "21":
-                xp = "33000";
-                break;
-            case "22":
-                xp = "41000";
-                break;
-            case "23":
-                xp = "50000";
-                break;
-            case "24":
-                xp = "62000";
-                break;
+			case "0":
+				xp = "10";
+				break;
+			case "1/8":
+				xp = "25";
+				break;
+			case "1/4":
+				xp = "50";
+				break;
+			case "1/2":
+				xp = "100";
+				break;
+			case "1":
+				xp = "200";
+				break;
+			case "2":
+				xp = "450";
+				break;
+			case "3":
+				xp = "700";
+				break;
+			case "4":
+				xp = "1100";
+				break;
+			case "5":
+				xp = "1800";
+				break;
+			case "6":
+				xp = "2300";
+				break;
+			case "7":
+				xp = "2900";
+				break;
+			case "8":
+				xp = "3900";
+				break;
+			case "9":
+				xp = "5000";
+				break;
+			case "10":
+				xp = "5900";
+				break;
+			case "11":
+				xp = "7200";
+				break;
+			case "12":
+				xp = "8400";
+				break;
+			case "13":
+				xp = "10000";
+				break;
+			case "14":
+				xp = "11500";
+				break;
+			case "15":
+				xp = "13000";
+				break;
+			case "16":
+				xp = "15000";
+				break;
+			case "17":
+				xp = "18000";
+				break;
+			case "18":
+				xp = "20000";
+				break;
+			case "19":
+				xp = "22000";
+				break;
+			case "20":
+				xp = "25000";
+				break;
+			case "21":
+				xp = "33000";
+				break;
+			case "22":
+				xp = "41000";
+				break;
+			case "23":
+				xp = "50000";
+				break;
+			case "24":
+				xp = "62000";
+				break;
 			case "25":
-                xp = "75000";
-                break;
-            case "26":
-                xp = "90000";
-                break;
-            case "27":
-                xp = "105000";
-                break;
-            case "28":
-                xp = "120000";
-                break;
-            case "29":
-                xp = "135000";
-                break;
-            case "30":
-                xp = "155000";
-                break;
-        }
-        return xp;
+				xp = "75000";
+				break;
+			case "26":
+				xp = "90000";
+				break;
+			case "27":
+				xp = "105000";
+				break;
+			case "28":
+				xp = "120000";
+				break;
+			case "29":
+				xp = "135000";
+				break;
+			case "30":
+				xp = "155000";
+				break;
+		}
+		return xp;
 	};
 
 	// Get NPC size from chr
@@ -566,7 +674,7 @@ var Roll20Plus = function(version) {
 	// Return random result from rolling dice
 	d20plus.randomRoll = function (roll, success, error) {
 		d20.textchat.diceengine.process(roll, success, error );
-	}
+	};
 
 	// Return random integer between [0,int)
 	d20plus.randomInt = function (int) {
@@ -796,8 +904,8 @@ var Roll20Plus = function(version) {
 		<span class="initiative" alt="Initiative" title="Initiative">Init</span>
 		<span class="pp" alt="Passive Perception" title="Passive Perception">Pass</span>
 		<span class="ac" alt="AC" title="AC">AC</span>
-		<span class="hp" alt="HP" title="HP">HP</span>
 		<span class="cr" alt="CR" title="CR">CR</span>
+		<span class="hp" alt="HP" title="HP">HP</span>
 	</div>`;
 
 	d20plus.initiativeTemplate = `<script id="tmpl_initiativecharacter" type="text/html">
@@ -810,6 +918,7 @@ var Roll20Plus = function(version) {
 		<$ var char = token.character; $>
 		<span class='pp' alt='Passive Perception' title='Passive Perception'><$!char.autoCalcFormula('||PP||')$></span>
 		<span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
+		<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
 		<span class='hp editable' alt='HP' title='HP'>
 		<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
 		<$ if(npc && npc.get("current") == "1") { $>
@@ -818,7 +927,6 @@ var Roll20Plus = function(version) {
 			<$!char.autoCalcFormula('||HP||')$>
 		<$ } $>
 		</span>
-		<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
 		<$ if (this.avatar) { $><img src='<$!this.avatar$>' /><$ } $>
 		<span class='name'><$!this.name$></span>
 		<div class='clear' style='height: 0px;'></div>
