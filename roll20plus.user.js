@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.6.6
+// @version      2.6.7
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
@@ -397,7 +397,7 @@ var Roll20Plus = function(version) {
 						$.each(data.reaction, function(i,v) {
 							var newRowId = d20plus.generateRowId(),
 								text = "";
-							character.attribs.create({ name: "repeating_npcreaction" + newRowId + "_name", current: v.name });
+							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_name", current: v.name });
 							if(v.text instanceof Array) {
 								$.each(v.text, function(z,x) {
 									text += (z > 0 ? "\r\n" : "") + x;
@@ -405,7 +405,7 @@ var Roll20Plus = function(version) {
 							} else {
 								text = v.text;
 							}
-							character.attribs.create({ name: "repeating_npcreaction" + newRowId + "_desc", current: text });
+							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_desc", current: text });
 						});
 					}
 
