@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.6.0
+// @version      2.6.2
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
@@ -72,7 +72,6 @@ var Roll20Plus = function(version) {
 						var hpformula = hpf.get("current");
 						if(hpformula) {
 							d20plus.randomRoll(hpformula, function(result) {
-								console.log(e);
 								e.attributes.bar3_value = result.total;
 								e.attributes.bar3_max = result.total;
 								d20plus.log("> Rolled HP for [" + character.get("name") + "]");
@@ -89,7 +88,7 @@ var Roll20Plus = function(version) {
 
 	// Does a monster already exist with this name
 	d20plus.monsterExists = function(folderObj, folderId, name) {
-		var container = d20plus.folderContainer(folderObj, folderId, 0),
+		var container = folderObj.find(function(a){return a.id == folderId});
 			result = false;
 		$.each(container.i, function(i,v) {
 			var char = d20.Campaign.characters._byId[v];
@@ -97,22 +96,6 @@ var Roll20Plus = function(version) {
 				result = true;
 		});
 		return result;
-	};
-
-	// Get folder container
-	d20plus.folderContainer = function(journal, id, i) {
-		if (i > 99)
-			return void 0;
-		var n;
-		return _.each(journal, function(e) {
-			if (e && "object" == typeof e && e.id === id)
-				n = e;
-			else if (e && "object" == typeof e && void 0 !== e.i) {
-				var o = r(e.i, id, i + 1);
-				void 0 !== o && (n = o)
-			}
-			return n ? !1 : void 0
-		}),n;
 	};
 
 	// Insert HTML
@@ -151,6 +134,7 @@ var Roll20Plus = function(version) {
 
 	// Fetch monster data from XML url
 	d20plus.loadMonstersXML = function(url) {
+		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
 		$.ajax({
 			type: "GET",
@@ -158,13 +142,18 @@ var Roll20Plus = function(version) {
 			dataType: "xml",
 			success: function (xml) {
 				json = x2js.xml2json(xml);
+				var time = 500;
 				$.each(json.compendium.monster, function(i,v) {
-					try {
-						d20plus.importMonster(v);
-					} catch (e) {
-						console.log("I have failed you :(");
-						d20plus.log(e);
-					}
+					setTimeout(function() {
+						try {
+							d20plus.log("> " + (i+1) + " Attempting to import monster [" + v.name + "]");
+							d20plus.importMonster(v);
+						} catch (e) {
+							console.log(e);
+							d20plus.log("I have failed you :(");
+						}
+					}, time);
+					time += 2000;
 				});
 			}
 		});
@@ -172,17 +161,47 @@ var Roll20Plus = function(version) {
 
 	// Create monster character from data
 	d20plus.importMonster = function (data) {
+		var fname = "Monsters",
+			findex = 0;
+
 		d20.journal.refreshJournalList();
-		var journalFolder = d20.Campaign.get("journalfolder"),
-			journalFolderObj = JSON.parse(journalFolder),
-			folder = journalFolderObj.find( function (f) {return f.n == "Monsters";} );
-		if (!folder) {
-			d20.journal.addFolderToFolderStructure("Monsters");
-			folder = journalFolderObj.find( function (f) {return f.n == "Monsters";} );
-			if (!folder) return;
+		var journalFolder = d20.Campaign.get("journalfolder");
+		if(journalFolder === ""){
+			d20.journal.addFolderToFolderStructure("Characters");
+			d20.journal.refreshJournalList();
+			journalFolder = d20.Campaign.get("journalfolder");
 		}
-		var name = data.name || "(Unknown Name)";
-		if(d20plus.monsterExists(journalFolderObj, folder.id, name)) return;
+		var journalFolderObj = JSON.parse(journalFolder);
+
+		// clean this up later
+		for(i=0; i<99; i++) {
+			var theFolderName = fname + (findex > 0 ? " " + findex: "");
+			folder = journalFolderObj.find( function (f) {return f.n == theFolderName;} );
+			if(folder) {
+				if(folder.i.length >= 90) {
+					findex++;
+				} else {
+					i = 100;
+				}
+			} else {
+				d20.journal.addFolderToFolderStructure(theFolderName);
+				folder = journalFolderObj.find( function (f) {return f.n == theFolderName;} );
+				i = 100;
+			}
+		}
+		
+		if(!folder) return;
+
+		var name = data.name || "(Unknown Name)",
+			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters") !== -1}),
+			dupe = false;
+
+		$.each(mFolders, function(i,v) {
+			if(d20plus.monsterExists(journalFolderObj, v.id, name));
+				dupe = true;
+		});
+		if (dupe) return;
+
 		d20.Campaign.characters.create({
 			name: name
 		}, {
