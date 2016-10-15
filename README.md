@@ -11,9 +11,9 @@ Compatible  with certain character sheets.
 - Automatically rolls monster hp based on the `hpformula` and unlinks it for MOOK tokens
 
 ## Installation (3 steps)
-1.) Make sure you have Greasemonkey or Tampermonkey installed
-2.) Visit [this link](https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js) to install
-3.) Open up Roll20. You're done!
+1.) Make sure you have Greasemonkey or Tampermonkey installed  
+2.) Visit [this link](https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js) to install  
+3.) Open up Roll20. You're done!  
 
 ## Planned Features
 - Auto-Calculate difficulty for encounter
