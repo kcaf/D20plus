@@ -9,6 +9,7 @@ Compatible  with certain character sheets.
 - Instantly modify HP with + or -
 
 ## Planned Features
+- Auto-Calculate difficulty for encounter
 - Monster Importer (as Character)
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
