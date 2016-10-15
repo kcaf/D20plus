@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.6.2
+// @version      2.6.3
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
@@ -92,8 +92,9 @@ var Roll20Plus = function(version) {
 			result = false;
 		$.each(container.i, function(i,v) {
 			var char = d20.Campaign.characters._byId[v];
-			if(char && char.get("name") == name)
+			if(char && char.get("name") == name){
 				result = true;
+			}
 		});
 		return result;
 	};
@@ -197,10 +198,13 @@ var Roll20Plus = function(version) {
 			dupe = false;
 
 		$.each(mFolders, function(i,v) {
-			if(d20plus.monsterExists(journalFolderObj, v.id, name));
+			if(d20plus.monsterExists(journalFolderObj, v.id, name))
 				dupe = true;
 		});
-		if (dupe) return;
+		if (dupe) {
+			console.log("Already Exists");
+			return;
+		}
 
 		d20.Campaign.characters.create({
 			name: name
