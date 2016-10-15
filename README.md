@@ -7,10 +7,12 @@ Compatible  with certain character sheets.
 ## Features
 - Track HP, AC, and Passive Perception on the Initiative Tracker
 - Instantly modify HP with + or -
+- Monster Importer (as Character)
+- Automatically rolls monster hp based on the `hpformula` and unlinks it for MOOK tokens
 
 ## Planned Features
 - Auto-Calculate difficulty for encounter
-- ~~Monster Importer (as Character)~~ **possibly done? needs more testing**
+- ~~Monster Importer (as Character)~~
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
 
