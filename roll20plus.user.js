@@ -2,7 +2,7 @@
 // @name         Roll20-Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.6.3
+// @version      2.6.6
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Roll20 Plus
@@ -150,8 +150,9 @@ var Roll20Plus = function(version) {
 							d20plus.log("> " + (i+1) + " Attempting to import monster [" + v.name + "]");
 							d20plus.importMonster(v);
 						} catch (e) {
-							console.log(e);
 							d20plus.log("I have failed you :(");
+							console.log(data);
+							console.log(e);
 						}
 					}, time);
 					time += 2000;
@@ -163,7 +164,7 @@ var Roll20Plus = function(version) {
 	// Create monster character from data
 	d20plus.importMonster = function (data) {
 		var fname = "Monsters",
-			findex = 0;
+			findex = 1;
 
 		d20.journal.refreshJournalList();
 		var journalFolder = d20.Campaign.get("journalfolder");
@@ -176,7 +177,7 @@ var Roll20Plus = function(version) {
 
 		// clean this up later
 		for(i=0; i<99; i++) {
-			var theFolderName = fname + (findex > 0 ? " " + findex: "");
+			var theFolderName = fname + " " + findex;
 			folder = journalFolderObj.find( function (f) {return f.n == theFolderName;} );
 			if(folder) {
 				if(folder.i.length >= 90) {
@@ -194,7 +195,7 @@ var Roll20Plus = function(version) {
 		if(!folder) return;
 
 		var name = data.name || "(Unknown Name)",
-			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters") !== -1}),
+			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters ") !== -1}),
 			dupe = false;
 
 		$.each(mFolders, function(i,v) {
@@ -274,9 +275,9 @@ var Roll20Plus = function(version) {
 						var skills = data.skill.split(", ");
 						$.each(skills, function (i,v) {
 							if(v.length > 0) {
-								var skill = v.split(" ");
+								var skill = v.match(/([\w+ ]*[^+-?\d])([+-?\d]+)/);
 								//console.log({ name: "npc_" + skill[0].toLowerCase(), current: parseInt(skill[1]) });
-								character.attribs.create({ name: "npc_" + skill[0].toLowerCase(), current: parseInt(skill[1]) });
+								character.attribs.create({ name: "npc_" + $.trim(skill[1]).toLowerCase(), current: parseInt($.trim(skill[2])) || 0 });
 							}
 						});
 					}
@@ -333,14 +334,15 @@ var Roll20Plus = function(version) {
 									
 									var onhit = "",
 										damagetype = "",
-										damage = attack[2];
+										damage = "" + attack[2],
+										tohit = attack[1] || 0;
 										
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: name });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_flag", current: "on" });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_npc_options-flag", current: 0 });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_options", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohit", current: attack[1] });
+									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohit", current: tohit });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_damage", current: damage });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: name });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
@@ -384,6 +386,29 @@ var Roll20Plus = function(version) {
 						});
 					}
 
+					if(data.reaction != null) {
+						if(!(data.reaction instanceof Array)) {
+							var tmp = data.reaction;
+							data.reaction = [];
+							data.reaction.push(tmp);
+						}
+						character.attribs.create({ name: "reaction_flag", current: 1 });
+						character.attribs.create({ name: "npcreactionsflag", current: 1 });
+						$.each(data.reaction, function(i,v) {
+							var newRowId = d20plus.generateRowId(),
+								text = "";
+							character.attribs.create({ name: "repeating_npcreaction" + newRowId + "_name", current: v.name });
+							if(v.text instanceof Array) {
+								$.each(v.text, function(z,x) {
+									text += (z > 0 ? "\r\n" : "") + x;
+								});
+							} else {
+								text = v.text;
+							}
+							character.attribs.create({ name: "repeating_npcreaction" + newRowId + "_desc", current: text });
+						});
+					}
+
 					if(data.legendary != null) {
 						if(!(data.legendary instanceof Array)) {
 							var tmp = data.legendary;
@@ -414,14 +439,15 @@ var Roll20Plus = function(version) {
 									
 									var onhit = "",
 										damagetype = "",
-										damage = attack[2];
+										damage = "" + attack[2],
+										tohit = attack[1] || 0;
 										
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_options", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohit", current: attack[1] });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohit", current: tohit });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_damage", current: damage });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: name });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
@@ -472,7 +498,8 @@ var Roll20Plus = function(version) {
 
 				} catch (e) {
 					d20plus.log("> Error loading [" + name + "]");
-					console.log(data, e);
+					console.log(data);
+					console.log(e);
 				}
 				/* end OGL Sheet */
 
