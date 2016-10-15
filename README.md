@@ -10,7 +10,7 @@ Compatible  with certain character sheets.
 
 ## Planned Features
 - Auto-Calculate difficulty for encounter
-- Monster Importer (as Character)
+- ~~Monster Importer (as Character)~~ **possibly done? needs more testing**
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
 
