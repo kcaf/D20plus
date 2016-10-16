@@ -12,8 +12,8 @@ Compatible  with certain character sheets.
 
 ## Installation (3 steps)
 1. Make sure you have [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey) or [Tampermonkey](https://tampermonkey.net) installed  
-2. Visit [this link](https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js) to install  
-3. Open up Roll20. You're done!  
+2. [Click here](https://github.com/kcaf/D20plus/raw/master/D20plus.user.js) to bring up the installer  
+3. Open up Roll20 and you're done!  
 
 ## Planned Features
 - Auto-Calculate difficulty for encounter
