@@ -1,18 +1,18 @@
 // ==UserScript==
-// @name         Roll20-Plus
+// @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
 // @version      2.6.7
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
-// @description  Roll20 Plus
+// @description  Enhance your Roll20 experience
 // @author       kcaf
 // @match        https://app.roll20.net/editor/
 // @grant        unsafeWindow
 // @run-at       document-start
 // ==/UserScript==
 
-var Roll20Plus = function(version) {
+var D20plus = function(version) {
 	var d20plus = {
 		sheet: "ogl",
 		version: version,
@@ -718,7 +718,7 @@ var Roll20Plus = function(version) {
 
 	// Prettier log
 	d20plus.log = function (arg) {
-		console.log("%cRoll20 Plus", "color: #3076b9; font-size: xx-large", arg);
+		console.log("%cD20+", "color: #3076b9; font-size: xx-large", arg);
 	};
 
 	// Return random result from rolling dice
@@ -926,7 +926,7 @@ var Roll20Plus = function(version) {
 	</script>`;
 
 	d20plus.settingsHtml = `<hr>
-	<h3>Roll20 Plus v` + d20plus.version + `</h3>
+	<h3>D20+ v` + d20plus.version + `</h3>
 	<p>
 		<label>Import <span style="color:red;">OGL Sheet ONLY!</span></label>
 		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
@@ -1053,4 +1053,4 @@ var Roll20Plus = function(version) {
 
 // Inject
 if (window.top == window.self)
-	unsafeWindow.eval("(" + Roll20Plus.toString() + ")('" + GM_info.script.version + "')");
+	unsafeWindow.eval("(" + D20plus.toString() + ")('" + GM_info.script.version + "')");
