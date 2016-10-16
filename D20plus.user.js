@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.6.7
+// @version      2.7.0
 // @updateURL    https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @downloadURL  https://github.com/kcaf/Roll20-Plus/raw/master/roll20plus.user.js
 // @description  Enhance your Roll20 experience
