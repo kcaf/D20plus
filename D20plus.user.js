@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.7.1
+// @version      2.8.0
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -54,14 +54,14 @@ var D20plus = function(version) {
 		d20plus.log("> Add HTML");
 		d20plus.addHTML();
 
-		d20plus.log("> Initiative Tracker");
-		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
-		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
-		d20.Campaign.initiativewindow._rebuildInitiativeList();
-		d20plus.hpAllowEdit();
-
 		d20plus.log("> Bind Events");
-		d20.Campaign.activePage().thegraphics.on("add", function(e) {
+		d20.Campaign.pages.each(d20plus.bindGraphics);
+		d20.Campaign.activePage().collection.on("add", d20plus.bindGraphics);
+	};
+
+	// Bind Graphics Add on page
+	d20plus.bindGraphics = function(page) {
+		page.thegraphics.on("add", function(e) {
 			var character = e.character;
 			if(character) {
 				var	npc = character.attribs.find(function(a){return a.get("name").toLowerCase() == "npc"; }),
@@ -86,12 +86,136 @@ var D20plus = function(version) {
 		});
 	};
 
-	// Does a monster already exist with this name
+	// Create new Journal commands
+	d20plus.addJournalCommands = function() {
+		var $selector = $("#journalitemmenu ul li"),
+			first = $selector.first();
+		first.after("<li data-action-type=\"cloneitem\">Duplicate</li>");
+		first.after("<li style=\"height: 10px;\">&nbsp;</li>");
+		$selector.on(window.mousedowntype, "li[data-action-type=cloneitem]", function() {
+			var id = $currentItemTarget.attr("data-itemid"),
+				character = d20.Campaign.characters.get(id),
+				handout = d20.Campaign.handouts.get(id)
+
+			if(character) {
+				character.editview.render();
+				character.editview.$el.find("button.duplicate").trigger("click");
+			}
+
+			if(handout) {
+				handout.view.render();
+				var json = handout.toJSON();
+                delete json.id;
+                json.name = "Copy of " + json.name;
+                handout.collection.create( json, {
+                	success: function(h) {
+                		handout._getLatestBlob("gmnotes",
+                			function(gmnotes) {
+                				h.updateBlobs({ gmnotes: gmnotes });
+                			}
+            			);
+            			handout._getLatestBlob("notes",
+                			function(notes) {
+                				h.updateBlobs({ notes: notes });
+                			}
+            			);
+                	}
+                });
+			}
+		});
+	};
+
+	// Determine difficulty of current encounter (iniativewindow)
+	d20plus.getDifficulty = function() {
+		var difficulty = "Unknown",
+			partyXPThreshold = [0,0,0,0],
+			players = [],
+			npcs = [];
+
+		$.each(d20.Campaign.initiativewindow.cleanList(), function(i, v) {
+			var token, char,
+				page = d20.Campaign.pages.get(v._pageid);
+			if(page) token = page.thegraphics.get(v.id);
+			if(token) char = token.character;
+			if(char) {
+				var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() === "npc";});
+				if(npc && npc.get("current") == "1"){
+					npcs.push(char);
+				} else {
+					var level = char.attribs.find(function(a){return a.get("name").toLowerCase() === "level";});
+					// Can't determine difficulty without level
+					if(!level || partyXPThreshold == null) {
+						partyXPThreshold = null;
+						return;
+					}
+
+					// Total party threshold
+					for(i=0; i<partyXPThreshold.length; i++) {
+						partyXPThreshold[i] += d20plus.getXPbyLevel(level.get("current"))[i];
+					}
+					players.push(players.length+1);
+				}
+			}
+		});
+
+		if (!players.length) {
+			return difficulty;
+		}
+
+		// If a player doesn't have level set, fail out.
+		if(partyXPThreshold !== null){
+			var len = npcs.length,
+				multiplier = 0,
+				adjustedxp = 0,
+				xp = 0,
+				index = 0;
+
+			// Adjust for number of monsters
+			if(len < 2) index = 0; else
+				if(len < 3) index = 1; else
+					if(len < 7) index = 2; else
+						if(len < 11) index = 3; else
+							if(len < 15) index = 4; else
+								index = 5;
+
+			// Adjust for smaller parties
+			if( players.length < 3)
+				index++;
+
+			// Set multiplier
+			multiplier = d20plus.multipliers[index];
+
+			// Total monster xp
+			$.each(npcs, function(i, v) {
+				var cr = v.attribs.find(function(a){return a.get("name").toLowerCase() === "npc_challenge";});
+				if(cr){
+					xp += parseInt(d20plus.getXPbyCR(cr.get("current")));
+				}
+			});
+
+			// Encounter's adjusted xp
+			adjustedxp = xp * multiplier;
+
+			console.log("Party XP Threshold",partyXPThreshold);
+			console.log("Adjusted XP",adjustedxp);
+
+			// Determine difficulty
+			if(adjustedxp < partyXPThreshold[0]) difficulty = "Trivial"; else
+				if(adjustedxp < partyXPThreshold[1]) difficulty = "Easy"; else
+					if(adjustedxp < partyXPThreshold[2]) difficulty = "Medium"; else
+						if(adjustedxp < partyXPThreshold[3]) difficulty = "Hard"; else
+							difficulty = "Deadly";
+		}
+
+		return difficulty;
+	};
+
+	// Determine if folder contains monster by that name
 	d20plus.monsterExists = function(folderObj, folderId, name) {
-		var container = folderObj.find(function(a){return a.id == folderId});
+		var container = folderObj.find(function(a){return a.id == folderId;});
 			result = false;
 		$.each(container.i, function(i,v) {
-			var char = d20.Campaign.characters._byId[v];
+			var char = d20.Campaign.characters.get(v);
 			if(char && char.get("name") == name){
 				result = true;
 			}
@@ -99,14 +223,44 @@ var D20plus = function(version) {
 		return result;
 	};
 
-	// Insert HTML
+	// Inject HTML
 	d20plus.addHTML = function() {
 		$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
 		$("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
-		$("#mysettings > .content a#d20plus-btn-im").on("click", d20plus.buttonMonsterClicked);
+		$("#mysettings > .content a#d20plus-btn-im").on(window.mousedowntype, d20plus.buttonMonsterClicked);
+		d20plus.addJournalCommands();
+
+		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
+		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
+		d20.Campaign.initiativewindow._rebuildInitiativeList();
+		d20plus.hpAllowEdit();
+
+		d20.Campaign.initiativewindow.model.on("change:turnorder", function() { 
+			d20plus.updateDifficulty();
+		});
+		d20plus.updateDifficulty();
+
+		/*var $btn = $(d20plus.refreshButtonHtml);
+		$btn.hover(function() {
+			$btn.addClass("ui-state-hover");
+        }, function() {
+        	$btn.removeClass("ui-state-hover");
+        }).on(window.mousedowntype, function() {
+        	d20.Campaign.initiativewindow._rebuildInitiativeList();
+        });
+		$("div#initiativewindow").parent().find(".ui-dialog-buttonpane > .ui-dialog-buttonset").prepend($btn);*/
 	};
 
-	// Run external scripts
+	d20plus.updateDifficulty = function() {
+		var $span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+		if(!$span.length) {
+			$("div#initiativewindow").parent().find(".ui-dialog-buttonpane").prepend(d20plus.difficultyHtml);
+			$span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+		}
+		$span.text("Difficulty: " + d20plus.getDifficulty());
+	};
+
+	// Inject external JS libraries
 	d20plus.addScripts = function() {
 		$.each(d20plus.scripts, function(i,v) {
 			$.ajax({
@@ -132,7 +286,7 @@ var D20plus = function(version) {
 		}
 	};
 
-	// Fetch monster data from XML url
+	// Fetch monster data from XML url and import it
 	d20plus.loadMonstersXML = function(url) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
@@ -160,7 +314,7 @@ var D20plus = function(version) {
 		});
 	};
 
-	// Create monster character from data
+	// Create monster character from js data object
 	d20plus.importMonster = function (data) {
 		var fname = "Monsters",
 			findex = 1;
@@ -190,11 +344,11 @@ var D20plus = function(version) {
 				i = 100;
 			}
 		}
-		
+
 		if(!folder) return;
 
 		var name = data.name || "(Unknown Name)",
-			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters ") !== -1}),
+			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters ") !== -1;}),
 			dupe = false;
 
 		$.each(mFolders, function(i,v) {
@@ -224,7 +378,7 @@ var D20plus = function(version) {
 						type = data.type || "(Unknown Type)",
 						alignment = data.alignment || "(Unknown Alignment)",
 						cr = data.cr != null ? data.cr : "",
-						xp = d20plus.getXP(cr);
+						xp = d20plus.getXPbyCR(cr);
 
 					character.attribs.create({ name: "npc", current: 1 });
 					character.attribs.create({ name: "npc_toggle", current: 1 });
@@ -258,13 +412,11 @@ var D20plus = function(version) {
 					character.attribs.create({ name: "npc_condition_immunities", current: data.conditionImmune != null ? data.conditionImmune : "" });
 					character.attribs.create({ name: "npc_senses", current: sensesStr });
 
-					//character.attribs.create({ name: "npc_skills", current: data.skill != null ? data.skill : "" });
 					if(data.save != null && data.save.length > 0) {
 						character.attribs.create({ name: "npc_saving_flag", current: 1 });
 						var savingthrows = data.save.split(", ");
 						$.each(savingthrows, function (i,v) {
 							var save = v.split(" ");
-							//console.log({ name: "npc_" + save[0].toLowerCase() + "_save", current: parseInt(save[1]) });
 							character.attribs.create({ name: "npc_" + save[0].toLowerCase() + "_save", current: parseInt(save[1]) });
 						});
 					}
@@ -275,7 +427,6 @@ var D20plus = function(version) {
 						$.each(skills, function (i,v) {
 							if(v.length > 0) {
 								var skill = v.match(/([\w+ ]*[^+-?\d])([+-?\d]+)/);
-								//console.log({ name: "npc_" + skill[0].toLowerCase(), current: parseInt(skill[1]) });
 								character.attribs.create({ name: "npc_" + $.trim(skill[1]).toLowerCase(), current: parseInt($.trim(skill[2])) || 0 });
 							}
 						});
@@ -290,8 +441,6 @@ var D20plus = function(version) {
 						$.each(data.trait, function(i,v) {
 							var newRowId = d20plus.generateRowId(),
 								text = "";
-							//console.log('trait',v);
-							//console.log({ name: "repeating_npctrait_" + newRowId + "_name", current: v.name });
 							character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_name", current: v.name });
 							if(v.text instanceof Array) {
 								$.each(v.text, function(z,x) {
@@ -300,7 +449,6 @@ var D20plus = function(version) {
 							} else {
 								text = v.text;
 							}
-							//console.log({ name: "repeating_npctrait_" + newRowId + "_desc", current: text });
 							character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_desc", current: text });
 						});
 					}
@@ -328,14 +476,14 @@ var D20plus = function(version) {
 										name = "";
 									if(v.attack.length > 1)
 										name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
-									else 
+									else
 										name = v.name;
-									
+
 									var onhit = "",
 										damagetype = "",
 										damage = "" + attack[2],
 										tohit = attack[1] || 0;
-										
+
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: name });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_flag", current: "on" });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_npc_options-flag", current: 0 });
@@ -420,7 +568,7 @@ var D20plus = function(version) {
 							var newRowId = d20plus.generateRowId(),
 								actiontext = "",
 								text = "";
-							
+
 							var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
 							if(v.attack != null) {
 								if(!(v.attack instanceof Array)) {
@@ -433,14 +581,14 @@ var D20plus = function(version) {
 										name = "";
 									if(v.attack.length > 1)
 										name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
-									else 
+									else
 										name = v.name;
-									
+
 									var onhit = "",
 										damagetype = "",
 										damage = "" + attack[2],
 										tohit = attack[1] || 0;
-										
+
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
 									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
@@ -492,7 +640,7 @@ var D20plus = function(version) {
 
 					character.view._updateSheetValues();
 					var dirty = [];
-					$.each(d20.journal.customSheets.attrDeps, function(i,v){ dirty.push(i) } );
+					$.each(d20.journal.customSheets.attrDeps, function(i,v){ dirty.push(i); } );
 					d20.journal.notifyWorkersOfAttrChanges(character.view.model.id, dirty, true);
 
 				} catch (e) {
@@ -508,111 +656,72 @@ var D20plus = function(version) {
 		});
 	};
 
-	d20plus.getXP = function(cr) {
+	// Return XP based on monster cr
+	d20plus.getXPbyCR = function(cr) {
 		var xp = "";
-		switch(cr) {
-			case "0":
-				xp = "10";
-				break;
-			case "1/8":
-				xp = "25";
-				break;
-			case "1/4":
-				xp = "50";
-				break;
-			case "1/2":
-				xp = "100";
-				break;
-			case "1":
-				xp = "200";
-				break;
-			case "2":
-				xp = "450";
-				break;
-			case "3":
-				xp = "700";
-				break;
-			case "4":
-				xp = "1100";
-				break;
-			case "5":
-				xp = "1800";
-				break;
-			case "6":
-				xp = "2300";
-				break;
-			case "7":
-				xp = "2900";
-				break;
-			case "8":
-				xp = "3900";
-				break;
-			case "9":
-				xp = "5000";
-				break;
-			case "10":
-				xp = "5900";
-				break;
-			case "11":
-				xp = "7200";
-				break;
-			case "12":
-				xp = "8400";
-				break;
-			case "13":
-				xp = "10000";
-				break;
-			case "14":
-				xp = "11500";
-				break;
-			case "15":
-				xp = "13000";
-				break;
-			case "16":
-				xp = "15000";
-				break;
-			case "17":
-				xp = "18000";
-				break;
-			case "18":
-				xp = "20000";
-				break;
-			case "19":
-				xp = "22000";
-				break;
-			case "20":
-				xp = "25000";
-				break;
-			case "21":
-				xp = "33000";
-				break;
-			case "22":
-				xp = "41000";
-				break;
-			case "23":
-				xp = "50000";
-				break;
-			case "24":
-				xp = "62000";
-				break;
-			case "25":
-				xp = "75000";
-				break;
-			case "26":
-				xp = "90000";
-				break;
-			case "27":
-				xp = "105000";
-				break;
-			case "28":
-				xp = "120000";
-				break;
-			case "29":
-				xp = "135000";
-				break;
-			case "30":
-				xp = "155000";
-				break;
+		switch(cr.toString()) {
+			case "0": xp = "10"; break;
+			case "1/8": xp = "25"; break;
+			case "1/4": xp = "50"; break;
+			case "1/2": xp = "100"; break;
+			case "1": xp = "200"; break;
+			case "2": xp = "450"; break;
+			case "3": xp = "700"; break;
+			case "4": xp = "1100"; break;
+			case "5": xp = "1800"; break;
+			case "6": xp = "2300"; break;
+			case "7": xp = "2900"; break;
+			case "8": xp = "3900"; break;
+			case "9": xp = "5000"; break;
+			case "10": xp = "5900"; break;
+			case "11": xp = "7200"; break;
+			case "12": xp = "8400"; break;
+			case "13": xp = "10000"; break;
+			case "14": xp = "11500"; break;
+			case "15": xp = "13000"; break;
+			case "16": xp = "15000"; break;
+			case "17": xp = "18000"; break;
+			case "18": xp = "20000"; break;
+			case "19": xp = "22000"; break;
+			case "20": xp = "25000"; break;
+			case "21": xp = "33000"; break;
+			case "22": xp = "41000"; break;
+			case "23": xp = "50000"; break;
+			case "24": xp = "62000"; break;
+			case "25": xp = "75000"; break;
+			case "26": xp = "90000"; break;
+			case "27": xp = "105000"; break;
+			case "28": xp = "120000"; break;
+			case "29": xp = "135000"; break;
+			case "30": xp = "155000"; break;
+		}
+		return xp;
+	};
+
+	// Return XP based on character level
+	d20plus.getXPbyLevel = function(level) {
+		var xp = [0, 0, 0, 0];
+		switch(level.toString()) {
+			case "1": xp = [25, 50, 75, 100]; break;
+			case "2": xp = [50, 100, 150, 200]; break;
+			case "3": xp = [75, 150, 225, 400]; break;
+			case "4": xp = [125, 250, 375, 500]; break;
+			case "5": xp = [250, 500, 750, 1100]; break;
+			case "6": xp = [300, 600, 900, 1400]; break;
+			case "7": xp = [350, 750, 1100, 1700]; break;
+			case "8": xp = [450, 900, 1400, 2100]; break;
+			case "9": xp = [550, 1100, 1600, 2400]; break;
+			case "10": xp = [600, 1200, 1900, 2800]; break;
+			case "11": xp = [800, 1600, 2400, 3600]; break;
+			case "12": xp = [1000, 2000, 3000, 4500]; break;
+			case "13": xp = [1100, 2200, 3400, 5100]; break;
+			case "14": xp = [1250, 2500, 3800, 5700]; break;
+			case "15": xp = [1400, 2800, 4300, 6400]; break;
+			case "16": xp = [1600, 3200, 4800, 7200]; break;
+			case "17": xp = [2000, 3900, 5900, 8800]; break;
+			case "18": xp = [2100, 4200, 6300, 9500]; break;
+			case "19": xp = [2400, 4900, 7300, 10900]; break;
+			case "20": xp = [2800, 5700, 8500, 12700]; break;
 		}
 		return xp;
 	};
@@ -620,26 +729,16 @@ var D20plus = function(version) {
 	// Get NPC size from chr
 	d20plus.getSizeString = function(chr) {
 		switch(chr){
-			case "F":
-				return "Fine";
-			case "D":
-				return "Diminutive";
-			case "T":
-				return "Tiny";
-			case "S":
-				return "Small";
-			case "M":
-				return "Medium";
-			case "L":
-				return "Large";
-			case "H":
-				return "Huge";
-			case "G":
-				return "Gargantuan";
-			case "C":
-				return "Colossal";
-			default:
-				return "(Unknown Size)";
+			case "F": return "Fine";
+			case "D": return "Diminutive";
+			case "T": return "Tiny";
+			case "S": return "Small";
+			case "M": return "Medium";
+			case "L": return "Large";
+			case "H": return "Huge";
+			case "G": return "Gargantuan";
+			case "C": return "Colossal";
+			default: return "(Unknown Size)";
 		}
 	};
 
@@ -648,9 +747,14 @@ var D20plus = function(version) {
 		return window.generateUUID().replace(/_/g, "Z");
 	};
 
+	// Create ID for item
+	d20plus.generateId = function() {
+		return window.generateUUID();
+	};
+
 	// Create editable HP variable and autocalculate + or -
 	d20plus.hpAllowEdit = function() {
-		$("#initiativewindow").on("click", ".hp.editable", function() {
+		$("#initiativewindow").on(window.mousedowntype, ".hp.editable", function() {
 			if ($(this).find("input").length > 0)
 				return void $(this).find("input").focus();
 			var val = $.trim($(this).text());
@@ -685,7 +789,7 @@ var D20plus = function(version) {
 						});
 					}
 				}
-				d20.Campaign.initiativewindow._rebuildInitiativeList();
+				d20.Campaign.initiativewindow.rebuildInitiativeList();
 			}
 		});
 	};
@@ -737,6 +841,7 @@ var D20plus = function(version) {
 		d20plus.sheet = s in d20plus.formulas ? s : "ogl";
 		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
 		d20.Campaign.initiativewindow._rebuildInitiativeList();
+		d20plus.updateDifficulty();
 		d20plus.log("> Switched Character Sheet Template");
 	};
 
@@ -750,6 +855,10 @@ var D20plus = function(version) {
 	};
 
 	/*  */
+	d20plus.difficultyHtml = `<span class="difficulty"></span>`;
+
+	d20plus.multipliers = [1, 1.5, 2, 2.5, 3, 4, 5];
+
 	d20plus.formulas = {
 		ogl: {
 			"CR": "@{npc_challenge}",
@@ -771,6 +880,10 @@ var D20plus = function(version) {
 			url: "https://cdnjs.cloudflare.com/ajax/libs/x2js/1.2.0/xml2json.min.js"
 		}
 	];
+
+	d20plus.refreshButtonHtml = `<button type="button" alt="Refresh" title="Refresh" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons" role="button" aria-disabled="false">
+		<span class="ui-button-text" style="">1</span>
+	</button>`;
 
 	d20plus.settingsHtml = `<hr>
 	<h3>D20+ v` + d20plus.version + `</h3>
@@ -794,7 +907,11 @@ var D20plus = function(version) {
 		{s: "#initiativewindow div.header",
 			r: "height: 30px;"},
 		{s: "#initiativewindow div.header span",
-			r: "cursor: default;font-size: 15px;font-weight: bold;text-align: right;float: right;width: 10%;min-height: 20px;padding: 5px;"}
+			r: "cursor: default;font-size: 15px;font-weight: bold;text-align: right;float: right;width: 10%;min-height: 20px;padding: 5px;"},
+		{s: ".ui-dialog-buttonpane span.difficulty",
+			r: "display: inline-block;padding: 5px 4px 6px;margin: .5em .4em .5em 0;font-size: 18px;"},
+		{s: ".ui-dialog .ui-dialog-buttonpane",
+			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"}
 	];
 
 	d20plus.initiativeHeaders = `<div class="header">
@@ -812,18 +929,21 @@ var D20plus = function(version) {
 			<$!this.pr$>
 		</span>
 		<$ var token = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(this.id); $>
-		<$ var char = token.character; $>
-		<span class='pp' alt='Passive Perception' title='Passive Perception'><$!char.autoCalcFormula('||PP||')$></span>
-		<span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
-		<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
-		<span class='hp editable' alt='HP' title='HP'>
-		<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
-		<$ if(npc && npc.get("current") == "1") { $>
-			<$!token.attributes.bar3_value$>
-		<$ } else { $>
-			<$!char.autoCalcFormula('||HP||')$>
+		<$ var char = (token) ? token.character : null; $>
+		<$ if (char) { $>
+			<$ var passive = char.autoCalcFormula('@{passive}') || char.autoCalcFormula('||PP||'); $>
+			<span class='pp' alt='Passive Perception' title='Passive Perception'><$!passive$></span>
+			<span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
+			<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
+			<span class='hp editable' alt='HP' title='HP'>
+			<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
+			<$ if(npc && npc.get("current") == "1") { $>
+				<$!token.attributes.bar3_value$>
+			<$ } else { $>
+				<$!char.autoCalcFormula('||HP||')$>
+			<$ } $>
+			</span>
 		<$ } $>
-		</span>
 		<$ if (this.avatar) { $><img src='<$!this.avatar$>' /><$ } $>
 		<span class='name'><$!this.name$></span>
 		<div class='clear' style='height: 0px;'></div>
