@@ -7,6 +7,7 @@ Compatible  with certain character sheets.
 ## Features
 - Track HP, AC, and Passive Perception on the Initiative Tracker
 - Instantly modify HP with + or -
+- Auto-Calculate difficulty for encounter
 - Monster Importer (as Character)
 - Automatically rolls monster hp based on the `hpformula` and unlinks it for MOOK tokens
 
@@ -16,10 +17,11 @@ Compatible  with certain character sheets.
 3. Open up Roll20 and you're done!  
 
 ## Planned Features
-- Auto-Calculate difficulty for encounter
+- ~~Auto-Calculate difficulty for encounter~~
 - ~~Monster Importer (as Character)~~
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
+- Want more? Me too! [Let's Chat](https://github.com/kcaf/D20plus/issues)
 
 ## License
 D20+ is licensed under the [MIT license](https://opensource.org/licenses/MIT).
