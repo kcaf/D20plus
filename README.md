@@ -2,7 +2,7 @@
 
 D20+ is a userscript built with ♥ to enhance your Roll20 experience.  
 This userscript was built off the [d20-boilerplate](https://github.com/kcaf/d20-boilerplate).  
-Compatible  with certain character sheets.
+Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.
 
 ## Features
 - Track HP, AC, and Passive Perception on the Initiative Tracker
@@ -17,8 +17,8 @@ Compatible  with certain character sheets.
 3. Open up Roll20 and you're done!  
 
 ## Planned Features
-- ~~Auto-Calculate difficulty for encounter~~
-- ~~Monster Importer (as Character)~~
+- ~~Auto-Calculate difficulty for encounter~~ done
+- ~~Monster Importer (as Character)~~ done
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
 - Want more? Me too! [Let's Chat](https://github.com/kcaf/D20plus/issues)
