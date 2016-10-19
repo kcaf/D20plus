@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.0
+// @version      2.8.1
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -90,12 +90,15 @@ var D20plus = function(version) {
 	d20plus.addJournalCommands = function() {
 		var $selector = $("#journalitemmenu ul li"),
 			first = $selector.first();
+
 		first.after("<li data-action-type=\"cloneitem\">Duplicate</li>");
 		first.after("<li style=\"height: 10px;\">&nbsp;</li>");
-		$selector.on(window.mousedowntype, "li[data-action-type=cloneitem]", function() {
+		$("#journalitemmenu ul").on(window.mousedowntype, "li[data-action-type=cloneitem]", function() {
 			var id = $currentItemTarget.attr("data-itemid"),
 				character = d20.Campaign.characters.get(id),
-				handout = d20.Campaign.handouts.get(id)
+				handout = d20.Campaign.handouts.get(id);
+
+            d20plus.log("> Duplicating..");
 
 			if(character) {
 				character.editview.render();
@@ -228,7 +231,6 @@ var D20plus = function(version) {
 		$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
 		$("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
 		$("#mysettings > .content a#d20plus-btn-im").on(window.mousedowntype, d20plus.buttonMonsterClicked);
-		d20plus.addJournalCommands();
 
 		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
 		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
@@ -239,6 +241,8 @@ var D20plus = function(version) {
 			d20plus.updateDifficulty();
 		});
 		d20plus.updateDifficulty();
+
+		d20plus.addJournalCommands();
 
 		/*var $btn = $(d20plus.refreshButtonHtml);
 		$btn.hover(function() {
@@ -252,12 +256,12 @@ var D20plus = function(version) {
 	};
 
 	d20plus.updateDifficulty = function() {
-		var $span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
-		if(!$span.length) {
+		var span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+		if(!span.length) {
 			$("div#initiativewindow").parent().find(".ui-dialog-buttonpane").prepend(d20plus.difficultyHtml);
-			$span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+			span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
 		}
-		$span.text("Difficulty: " + d20plus.getDifficulty());
+		span.text("Difficulty: " + d20plus.getDifficulty());
 	};
 
 	// Inject external JS libraries
@@ -763,14 +767,14 @@ var D20plus = function(version) {
 		});
 		$("#initiativewindow").on("keydown", ".hp.editable", function(event) {
 			if (event.which == 13) {
-				var total = 0, $el, token, id, char, hp,
+				var total = 0, el, token, id, char, hp,
 					val = $.trim($(this).find("input").val()),
 					matches = val.match(/[+\-]*(\.\d+|\d+(\.\d+)?)/g) || [];
 				while (matches.length) {
 					total+= parseFloat(matches.shift());
 				}
-				$el = $(this).parents("li.token");
-				id = $el.data("tokenid");
+				el = $(this).parents("li.token");
+				id = el.data("tokenid");
 				token = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(id);
 				char = token.character;
 				npc = char.attribs.find( function (a) {return a.get("name").toLowerCase() === "npc";} );
