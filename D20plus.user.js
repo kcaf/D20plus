@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.1
+// @version      2.8.2
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -54,7 +54,7 @@ var D20plus = function(version) {
 		d20plus.log("> Add HTML");
 		d20plus.addHTML();
 
-		d20plus.log("> Bind Events");
+		d20plus.log("> Bind Graphics");
 		d20.Campaign.pages.each(d20plus.bindGraphics);
 		d20.Campaign.activePage().collection.on("add", d20plus.bindGraphics);
 	};
@@ -915,7 +915,9 @@ var D20plus = function(version) {
 		{s: ".ui-dialog-buttonpane span.difficulty",
 			r: "display: inline-block;padding: 5px 4px 6px;margin: .5em .4em .5em 0;font-size: 18px;"},
 		{s: ".ui-dialog .ui-dialog-buttonpane",
-			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"}
+			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"},
+		{s: ".ui-dialog.dialog-collapsed .ui-dialog-buttonpane",
+ 	 		r: "position: initial;"}
 	];
 
 	d20plus.initiativeHeaders = `<div class="header">
