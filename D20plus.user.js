@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.4
+// @version      2.8.5
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -100,7 +100,7 @@ var D20plus = function(version) {
 				character = d20.Campaign.characters.get(id),
 				handout = d20.Campaign.handouts.get(id);
 
-            d20plus.log("> Duplicating..");
+			d20plus.log("> Duplicating..");
 
 			if(character) {
 				character.editview.render();
@@ -110,22 +110,22 @@ var D20plus = function(version) {
 			if(handout) {
 				handout.view.render();
 				var json = handout.toJSON();
-                delete json.id;
-                json.name = "Copy of " + json.name;
-                handout.collection.create( json, {
-                	success: function(h) {
-                		handout._getLatestBlob("gmnotes",
-                			function(gmnotes) {
-                				h.updateBlobs({ gmnotes: gmnotes });
-                			}
-            			);
-            			handout._getLatestBlob("notes",
-                			function(notes) {
-                				h.updateBlobs({ notes: notes });
-                			}
-            			);
-                	}
-                });
+				delete json.id;
+				json.name = "Copy of " + json.name;
+				handout.collection.create( json, {
+					success: function(h) {
+						handout._getLatestBlob("gmnotes",
+							function(gmnotes) {
+								h.updateBlobs({ gmnotes: gmnotes });
+							}
+						);
+						handout._getLatestBlob("notes",
+							function(notes) {
+								h.updateBlobs({ notes: notes });
+							}
+						);
+					}
+				});
 			}
 		});
 	};
@@ -255,11 +255,11 @@ var D20plus = function(version) {
 		/*var $btn = $(d20plus.refreshButtonHtml);
 		$btn.hover(function() {
 			$btn.addClass("ui-state-hover");
-        }, function() {
-        	$btn.removeClass("ui-state-hover");
-        }).on(window.mousedowntype, function() {
-        	d20.Campaign.initiativewindow._rebuildInitiativeList();
-        });
+		}, function() {
+			$btn.removeClass("ui-state-hover");
+		}).on(window.mousedowntype, function() {
+			d20.Campaign.initiativewindow._rebuildInitiativeList();
+		});
 		$("div#initiativewindow").parent().find(".ui-dialog-buttonpane > .ui-dialog-buttonset").prepend($btn);*/
 	};
 
@@ -307,16 +307,41 @@ var D20plus = function(version) {
 			url: url,
 			dataType: "xml",
 			success: function (xml) {
-				json = x2js.xml2json(xml);
-				var length = json.compendium.monster.length;
-				$.each(json.compendium.monster, function(i,v) {
-					try {
-						console.log("> " + (i+1) + "/" + length + " Attempting to import monster [" + v.name + "]");
-						d20plus.importMonster(v);
-					} catch (e) {
-						console.log("Error Importing!", e);
-					}
-				});
+				try{
+					d20plus.log("Importing XML");
+					json = x2js.xml2json(xml);
+					console.log(json.compendium.monster.length);
+					var length = json.compendium.monster.length;
+					$.each(json.compendium.monster, function(i,v) {
+						try {
+							console.log("> " + (i+1) + "/" + length + " Attempting to import monster [" + v.name + "]");
+							d20plus.importMonster(v);
+						} catch (e) {
+							console.log("Error Importing!", e);
+						}
+					});
+				} catch(e) {
+					console.log("> Exception ", e);
+				}
+			},
+			 error: function (jqXHR, exception) {
+				var msg = "";
+				if (jqXHR.status === 0) {
+					msg = "Could not connect.\n Check Network";
+				} else if (jqXHR.status == 404) {
+					msg = "Page not found [404]";
+				} else if (jqXHR.status == 500) {
+					msg = "Internal Server Error [500]";
+				} else if (exception === 'parsererror') {
+					msg = "XML parse failed";
+				} else if (exception === 'timeout') {
+					msg = "Timeout";
+				} else if (exception === 'abort') {
+					msg = "Request aborted";
+				} else {
+					msg = "Uncaught Error.\n" + jqXHR.responseText;
+				}
+				d20plus.log("> ERROR: " + msg);
 			}
 		});
 	};
@@ -949,7 +974,7 @@ var D20plus = function(version) {
 		{s: ".ui-dialog .ui-dialog-buttonpane",
 			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"},
 		{s: ".ui-dialog.dialog-collapsed .ui-dialog-buttonpane",
- 	 		r: "position: initial;"}
+			r: "position: initial;"}
 	];
 
 	d20plus.initiativeHeaders = `<div class="header">
