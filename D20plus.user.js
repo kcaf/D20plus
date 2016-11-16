@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.2
+// @version      2.8.3
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -16,6 +16,7 @@ var D20plus = function(version) {
 	var d20plus = {
 		sheet: "ogl",
 		version: version,
+		timeout: 500,
 		scriptsLoaded: false
 	};
 
@@ -300,19 +301,14 @@ var D20plus = function(version) {
 			dataType: "xml",
 			success: function (xml) {
 				json = x2js.xml2json(xml);
-				var time = 500;
+				var length = json.compendium.monster.length;
 				$.each(json.compendium.monster, function(i,v) {
-					setTimeout(function() {
-						try {
-							d20plus.log("> " + (i+1) + " Attempting to import monster [" + v.name + "]");
-							d20plus.importMonster(v);
-						} catch (e) {
-							d20plus.log("I have failed you :(");
-							console.log(data);
-							console.log(e);
-						}
-					}, time);
-					time += 2000;
+					try {
+						console.log("> " + (i+1) + "/" + length + " Attempting to import monster [" + v.name + "]");
+						d20plus.importMonster(v);
+					} catch (e) {
+						console.log("Error Importing!", e);
+					}
 				});
 			}
 		});
@@ -352,312 +348,321 @@ var D20plus = function(version) {
 		if(!folder) return;
 
 		var name = data.name || "(Unknown Name)",
-			mFolders = journalFolderObj.filter(function(a){return a.n.indexOf("Monsters ") !== -1;}),
+			mFolders = journalFolderObj.filter(function(a){return a.n && a.n.indexOf("Monsters ") !== -1}),
 			dupe = false;
 
 		$.each(mFolders, function(i,v) {
 			if(d20plus.monsterExists(journalFolderObj, v.id, name))
 				dupe = true;
 		});
+
+		var timeout = 0;
+
 		if (dupe) {
 			console.log("Already Exists");
 			return;
+		} else {
+			timeout = d20plus.timeout;
+			d20plus.timeout += 2500;
 		}
 
-		d20.Campaign.characters.create({
-			name: name
-		}, {
-			success: function(character) {
-				/* OGL Sheet */
-				try {
-					var ac = data.ac.match(/^\d+/),
-						actype = /\(([^)]+)\)/.exec(data.ac),
-						hp = data.hp.match(/^\d+/),
-						hpformula = /\(([^)]+)\)/.exec(data.hp),
-						passive = data.passive != null ? data.passive : "",
-						passiveStr = passive !== "" ? "passive Perception " + passive : "",
-						senses = data.senses || "",
-						sensesStr = senses !== "" ? senses + ", " + passiveStr : passiveStr,
-						size = d20plus.getSizeString(data.size || ""),
-						type = data.type || "(Unknown Type)",
-						alignment = data.alignment || "(Unknown Alignment)",
-						cr = data.cr != null ? data.cr : "",
-						xp = d20plus.getXPbyCR(cr);
+		setTimeout(function() {
+			d20plus.log("Running import of [" + name + "]");
+			d20.Campaign.characters.create({
+				name: name
+			}, {
+				success: function(character) {
+					/* OGL Sheet */
+					try {
+						var ac = data.ac.match(/^\d+/),
+							actype = /\(([^)]+)\)/.exec(data.ac),
+							hp = data.hp.match(/^\d+/),
+							hpformula = /\(([^)]+)\)/.exec(data.hp),
+							passive = data.passive != null ? data.passive : "",
+							passiveStr = passive !== "" ? "passive Perception " + passive : "",
+							senses = data.senses || "",
+							sensesStr = senses !== "" ? senses + ", " + passiveStr : passiveStr,
+							size = d20plus.getSizeString(data.size || ""),
+							type = data.type || "(Unknown Type)",
+							alignment = data.alignment || "(Unknown Alignment)",
+							cr = data.cr != null ? data.cr : "",
+							xp = d20plus.getXPbyCR(cr);
 
-					character.attribs.create({ name: "npc", current: 1 });
-					character.attribs.create({ name: "npc_toggle", current: 1 });
-					character.attribs.create({ name: "npc_options-flag", current: 0 });
-					character.attribs.create({ name: "wtype", current: "/w gm" });
-					character.attribs.create({ name: "rtype", current: "{{always=1}} {{r2=[[1d20" });
-					character.attribs.create({ name: "dtype", current: "full" });
-					character.attribs.create({ name: "npc_name", current: name });
-					character.attribs.create({ name: "npc_size", current: size });
-					character.attribs.create({ name: "type", current: type });
-					character.attribs.create({ name: "npc_type", current: size + " " + type + ", " + alignment });
-					character.attribs.create({ name: "npc_alignment", current: alignment });
-					character.attribs.create({ name: "npc_ac", current: ac != null ? ac[0] : "" });
-					character.attribs.create({ name: "npc_actype", current: actype != null ? actype[1] || "" : "" });
-					character.attribs.create({ name: "npc_hpbase", current: hp != null ? hp[0] : "" });
-					character.attribs.create({ name: "npc_hpformula", current: hpformula != null ? hpformula[1] || "" : "" });
-					character.attribs.create({ name: "npc_speed", current: data.speed != null ? data.speed : "" });
-					character.attribs.create({ name: "strength", current: data.str });
-					character.attribs.create({ name: "dexterity", current: data.dex });
-					character.attribs.create({ name: "constitution", current: data.con });
-					character.attribs.create({ name: "intelligence", current: data.int });
-					character.attribs.create({ name: "wisdom", current: data.wis });
-					character.attribs.create({ name: "charisma", current: data.cha });
-					character.attribs.create({ name: "passive", current: passive });
-					character.attribs.create({ name: "npc_languages", current: data.languages != null ? data.languages : "" });
-					character.attribs.create({ name: "npc_challenge", current: cr });
-					character.attribs.create({ name: "npc_xp", current: xp });
-					character.attribs.create({ name: "npc_vulnerabilities", current: data.vulnerable != null ? data.vulnerable : "" });
-					character.attribs.create({ name: "npc_resistances", current: data.resist != null ? data.resist : "" });
-					character.attribs.create({ name: "npc_immunities", current: data.immune != null ? data.immune : "" });
-					character.attribs.create({ name: "npc_condition_immunities", current: data.conditionImmune != null ? data.conditionImmune : "" });
-					character.attribs.create({ name: "npc_senses", current: sensesStr });
+						character.attribs.create({ name: "npc", current: 1 });
+						character.attribs.create({ name: "npc_toggle", current: 1 });
+						character.attribs.create({ name: "npc_options-flag", current: 0 });
+						character.attribs.create({ name: "wtype", current: "/w gm" });
+						character.attribs.create({ name: "rtype", current: "{{always=1}} {{r2=[[1d20" });
+						character.attribs.create({ name: "dtype", current: "full" });
+						character.attribs.create({ name: "npc_name", current: name });
+						character.attribs.create({ name: "npc_size", current: size });
+						character.attribs.create({ name: "type", current: type });
+						character.attribs.create({ name: "npc_type", current: size + " " + type + ", " + alignment });
+						character.attribs.create({ name: "npc_alignment", current: alignment });
+						character.attribs.create({ name: "npc_ac", current: ac != null ? ac[0] : "" });
+						character.attribs.create({ name: "npc_actype", current: actype != null ? actype[1] || "" : "" });
+						character.attribs.create({ name: "npc_hpbase", current: hp != null ? hp[0] : "" });
+						character.attribs.create({ name: "npc_hpformula", current: hpformula != null ? hpformula[1] || "" : "" });
+						character.attribs.create({ name: "npc_speed", current: data.speed != null ? data.speed : "" });
+						character.attribs.create({ name: "strength", current: data.str });
+						character.attribs.create({ name: "dexterity", current: data.dex });
+						character.attribs.create({ name: "constitution", current: data.con });
+						character.attribs.create({ name: "intelligence", current: data.int });
+						character.attribs.create({ name: "wisdom", current: data.wis });
+						character.attribs.create({ name: "charisma", current: data.cha });
+						character.attribs.create({ name: "passive", current: passive });
+						character.attribs.create({ name: "npc_languages", current: data.languages != null ? data.languages : "" });
+						character.attribs.create({ name: "npc_challenge", current: cr });
+						character.attribs.create({ name: "npc_xp", current: xp });
+						character.attribs.create({ name: "npc_vulnerabilities", current: data.vulnerable != null ? data.vulnerable : "" });
+						character.attribs.create({ name: "npc_resistances", current: data.resist != null ? data.resist : "" });
+						character.attribs.create({ name: "npc_immunities", current: data.immune != null ? data.immune : "" });
+						character.attribs.create({ name: "npc_condition_immunities", current: data.conditionImmune != null ? data.conditionImmune : "" });
+						character.attribs.create({ name: "npc_senses", current: sensesStr });
 
-					if(data.save != null && data.save.length > 0) {
-						character.attribs.create({ name: "npc_saving_flag", current: 1 });
-						var savingthrows = data.save.split(", ");
-						$.each(savingthrows, function (i,v) {
-							var save = v.split(" ");
-							character.attribs.create({ name: "npc_" + save[0].toLowerCase() + "_save", current: parseInt(save[1]) });
-						});
-					}
-
-					if(data.skill != null && data.skill.length > 0) {
-						character.attribs.create({ name: "npc_skills_flag", current: 1 });
-						var skills = data.skill.split(", ");
-						$.each(skills, function (i,v) {
-							if(v.length > 0) {
-								var skill = v.match(/([\w+ ]*[^+-?\d])([+-?\d]+)/);
-								character.attribs.create({ name: "npc_" + $.trim(skill[1]).toLowerCase(), current: parseInt($.trim(skill[2])) || 0 });
-							}
-						});
-					}
-
-					if(data.trait != null) {
-						if(!(data.trait instanceof Array)) {
-							var tmp = data.trait;
-							data.trait = [];
-							data.trait.push(tmp);
+						if(data.save != null && data.save.length > 0) {
+							character.attribs.create({ name: "npc_saving_flag", current: 1 });
+							var savingthrows = data.save.split(", ");
+							$.each(savingthrows, function (i,v) {
+								var save = v.split(" ");
+								character.attribs.create({ name: "npc_" + save[0].toLowerCase() + "_save", current: parseInt(save[1]) });
+							});
 						}
-						$.each(data.trait, function(i,v) {
-							var newRowId = d20plus.generateRowId(),
-								text = "";
-							character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_name", current: v.name });
-							if(v.text instanceof Array) {
-								$.each(v.text, function(z,x) {
-									text += (z > 0 ? "\r\n" : "") + x;
-								});
-							} else {
-								text = v.text;
-							}
-							character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_desc", current: text });
-						});
-					}
 
-					if(data.action != null) {
-						if(!(data.action instanceof Array)) {
-							var tmp = data.action;
-							data.action = [];
-							data.action.push(tmp);
-						}
-						$.each(data.action, function(i,v) {
-							var newRowId = d20plus.generateRowId(),
-								actiontext = "",
-								text = "";
-
-							var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
-							if(v.attack != null) {
-								if(!(v.attack instanceof Array)) {
-									var tmp = v.attack;
-									v.attack = [];
-									v.attack.push(tmp);
+						if(data.skill != null && data.skill.length > 0) {
+							character.attribs.create({ name: "npc_skills_flag", current: 1 });
+							var skills = data.skill.split(", ");
+							$.each(skills, function (i,v) {
+								if(v.length > 0) {
+									var skill = v.match(/([\w+ ]*[^+-?\d])([+-?\d]+)/);
+									character.attribs.create({ name: "npc_" + $.trim(skill[1]).toLowerCase(), current: parseInt($.trim(skill[2])) || 0 });
 								}
-								$.each(v.attack, function(z,x) {
-									var attack = x.split("|"),
-										name = "";
-									if(v.attack.length > 1)
-										name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
-									else
-										name = v.name;
+							});
+						}
 
-									var onhit = "",
-										damagetype = "",
-										damage = "" + attack[2],
-										tohit = attack[1] || 0;
+						if(data.trait != null) {
+							if(!(data.trait instanceof Array)) {
+								var tmp = data.trait;
+								data.trait = [];
+								data.trait.push(tmp);
+							}
+							$.each(data.trait, function(i,v) {
+								var newRowId = d20plus.generateRowId(),
+									text = "";
+								character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_name", current: v.name });
+								if(v.text instanceof Array) {
+									$.each(v.text, function(z,x) {
+										text += (z > 0 ? "\r\n" : "") + x;
+									});
+								} else {
+									text = v.text;
+								}
+								character.attribs.create({ name: "repeating_npctrait_" + newRowId + "_desc", current: text });
+							});
+						}
 
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: name });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_flag", current: "on" });
+						if(data.action != null) {
+							if(!(data.action instanceof Array)) {
+								var tmp = data.action;
+								data.action = [];
+								data.action.push(tmp);
+							}
+							$.each(data.action, function(i,v) {
+								var newRowId = d20plus.generateRowId(),
+									actiontext = "",
+									text = "";
+
+								var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
+								if(v.attack != null) {
+									if(!(v.attack instanceof Array)) {
+										var tmp = v.attack;
+										v.attack = [];
+										v.attack.push(tmp);
+									}
+									$.each(v.attack, function(z,x) {
+										var attack = x.split("|"),
+											name = "";
+										if(v.attack.length > 1)
+											name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
+										else
+											name = v.name;
+
+										var onhit = "",
+											damagetype = "",
+											damage = "" + attack[2],
+											tohit = attack[1] || 0;
+
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: name });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_flag", current: "on" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_npc_options-flag", current: 0 });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_options", current: "{{attack=1}}" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohit", current: tohit });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_damage", current: damage });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: name });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_type", current: "" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohitrange", current: "" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
+										if(damage !== "") {
+											damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
+											if(damage1.length < 2) {
+												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
+											}
+											else if(damage1.length < 3) {
+												onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
+											}
+											else {
+												onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
+											};
+										};
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_onhit", current: onhit });
+									});
+								} else {
+									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: v.name });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_npc_options-flag", current: 0 });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_options", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohit", current: tohit });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_damage", current: damage });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: name });
 									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_type", current: "" });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohitrange", current: "" });
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
-									if(damage !== "") {
-										damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
-										damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
-										if(damage1.length < 2) {
-											onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
-										}
-										else if(damage1.length < 3) {
-											onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
-										}
-										else {
-											onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
-										};
-									};
-									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_onhit", current: onhit });
-								});
-							} else {
-								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: v.name });
-								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_npc_options-flag", current: 0 });
-								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
-								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: v.name });
-							}
-
-
-							if(v.text instanceof Array) {
-								$.each(v.text, function(z,x) {
-									text += (z > 0 ? "\r\n" : "") + x;
-								});
-							} else {
-								text = v.text;
-							}
-
-							var descriptionFlag = Math.max(Math.ceil(text.length/57),1);
-							character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_description", current: text });
-							character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_description_flag", current: descriptionFlag });
-						});
-					}
-
-					if(data.reaction != null) {
-						if(!(data.reaction instanceof Array)) {
-							var tmp = data.reaction;
-							data.reaction = [];
-							data.reaction.push(tmp);
-						}
-						character.attribs.create({ name: "reaction_flag", current: 1 });
-						character.attribs.create({ name: "npcreactionsflag", current: 1 });
-						$.each(data.reaction, function(i,v) {
-							var newRowId = d20plus.generateRowId(),
-								text = "";
-							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_name", current: v.name });
-							if(v.text instanceof Array) {
-								$.each(v.text, function(z,x) {
-									text += (z > 0 ? "\r\n" : "") + x;
-								});
-							} else {
-								text = v.text;
-							}
-							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_desc", current: text });
-						});
-					}
-
-					if(data.legendary != null) {
-						if(!(data.legendary instanceof Array)) {
-							var tmp = data.legendary;
-							data.legendary = [];
-							data.legendary.push(tmp);
-						}
-						character.attribs.create({ name: "legendary_flag", current: "1" });
-						character.attribs.create({ name: "npc_legendary_actions", current: "(Unknown Number)" });
-						$.each(data.legendary, function(i,v) {
-							var newRowId = d20plus.generateRowId(),
-								actiontext = "",
-								text = "";
-
-							var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
-							if(v.attack != null) {
-								if(!(v.attack instanceof Array)) {
-									var tmp = v.attack;
-									v.attack = [];
-									v.attack.push(tmp);
+									character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: v.name });
 								}
-								$.each(v.attack, function(z,x) {
-									var attack = x.split("|"),
-										name = "";
-									if(v.attack.length > 1)
-										name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
-									else
-										name = v.name;
 
-									var onhit = "",
-										damagetype = "",
-										damage = "" + attack[2],
-										tohit = attack[1] || 0;
 
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_options", current: "{{attack=1}}" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohit", current: tohit });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_damage", current: damage });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: name });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_type", current: "" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohitrange", current: "" });
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
-									if(damage !== "") {
-										damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
-										damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
-										if(damage1.length < 2) {
-											onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
-										}
-										else if(damage1.length < 3) {
-											onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
-										}
-										else {
-											onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
+								if(v.text instanceof Array) {
+									$.each(v.text, function(z,x) {
+										text += (z > 0 ? "\r\n" : "") + x;
+									});
+								} else {
+									text = v.text;
+								}
+
+								var descriptionFlag = Math.max(Math.ceil(text.length/57),1);
+								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_description", current: text });
+								character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_description_flag", current: descriptionFlag });
+							});
+						}
+
+						if(data.reaction != null) {
+							if(!(data.reaction instanceof Array)) {
+								var tmp = data.reaction;
+								data.reaction = [];
+								data.reaction.push(tmp);
+							}
+							character.attribs.create({ name: "reaction_flag", current: 1 });
+							character.attribs.create({ name: "npcreactionsflag", current: 1 });
+							$.each(data.reaction, function(i,v) {
+								var newRowId = d20plus.generateRowId(),
+									text = "";
+								character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_name", current: v.name });
+								if(v.text instanceof Array) {
+									$.each(v.text, function(z,x) {
+										text += (z > 0 ? "\r\n" : "") + x;
+									});
+								} else {
+									text = v.text;
+								}
+								character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_desc", current: text });
+							});
+						}
+
+						if(data.legendary != null) {
+							if(!(data.legendary instanceof Array)) {
+								var tmp = data.legendary;
+								data.legendary = [];
+								data.legendary.push(tmp);
+							}
+							character.attribs.create({ name: "legendary_flag", current: "1" });
+							character.attribs.create({ name: "npc_legendary_actions", current: "(Unknown Number)" });
+							$.each(data.legendary, function(i,v) {
+								var newRowId = d20plus.generateRowId(),
+									actiontext = "",
+									text = "";
+
+								var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
+								if(v.attack != null) {
+									if(!(v.attack instanceof Array)) {
+										var tmp = v.attack;
+										v.attack = [];
+										v.attack.push(tmp);
+									}
+									$.each(v.attack, function(z,x) {
+										var attack = x.split("|"),
+											name = "";
+										if(v.attack.length > 1)
+											name = (attack[0] == v.name) ? v.name : v.name + " - " + attack[0] + "";
+										else
+											name = v.name;
+
+										var onhit = "",
+											damagetype = "",
+											damage = "" + attack[2],
+											tohit = attack[1] || 0;
+
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_display_flag", current: "{{attack=1}}" });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_options", current: "{{attack=1}}" });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohit", current: tohit });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_damage", current: damage });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: name });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_type", current: "" });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohitrange", current: "" });
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
+										if(damage !== "") {
+											damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
+											if(damage1.length < 2) {
+												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
+											}
+											else if(damage1.length < 3) {
+												onhit = onhit + Math.floor(damage1[0]*((damage2/2)+0.5)) + " (" + damage + ")" + damagetype + " damage";
+											}
+											else {
+												onhit = onhit + (Math.floor(damage1[0]*((damage2/2)+0.5))+parseInt(damage1[2],10)) + " (" + damage + ")" + damagetype + " damage";
+											};
 										};
-									};
-									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_onhit", current: onhit });
-								});
-							} else {
-								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: v.name });
-								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
-								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
-								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: v.name });
-							}
+										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_onhit", current: onhit });
+									});
+								} else {
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: v.name });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_npc_options-flag", current: 0 });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_rollbase", current: rollbase });
+									character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name_display", current: v.name });
+								}
 
 
-							if(v.text instanceof Array) {
-								$.each(v.text, function(z,x) {
-									text += (z > 0 ? "\r\n" : "") + x;
-								});
-							} else {
-								text = v.text;
-							}
+								if(v.text instanceof Array) {
+									$.each(v.text, function(z,x) {
+										text += (z > 0 ? "\r\n" : "") + x;
+									});
+								} else {
+									text = v.text;
+								}
 
-							var descriptionFlag = Math.max(Math.ceil(text.length/57),1);
-							character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description", current: text });
-							character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description_flag", current: descriptionFlag });
-						});
+								var descriptionFlag = Math.max(Math.ceil(text.length/57),1);
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description", current: text });
+								character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_description_flag", current: descriptionFlag });
+							});
+						}
+
+						character.view._updateSheetValues();
+						var dirty = [];
+						$.each(d20.journal.customSheets.attrDeps, function(i,v){ dirty.push(i); } );
+						d20.journal.notifyWorkersOfAttrChanges(character.view.model.id, dirty, true);
+
+					} catch (e) {
+						d20plus.log("> Error loading [" + name + "]");
+						console.log(data);
+						console.log(e);
 					}
+					/* end OGL Sheet */
 
-					character.view._updateSheetValues();
-					var dirty = [];
-					$.each(d20.journal.customSheets.attrDeps, function(i,v){ dirty.push(i); } );
-					d20.journal.notifyWorkersOfAttrChanges(character.view.model.id, dirty, true);
-
-				} catch (e) {
-					d20plus.log("> Error loading [" + name + "]");
-					console.log(data);
-					console.log(e);
+					//character.updateBlobs({gmnotes: gmnotes});
+					d20.journal.addItemToFolderStructure(character.id, folder.id);
 				}
-				/* end OGL Sheet */
-
-				//character.updateBlobs({gmnotes: gmnotes});
-				d20.journal.addItemToFolderStructure(character.id, folder.id);
-			}
-		});
+			});
+		}, timeout);
 	};
 
 	// Return XP based on monster cr
