@@ -2,7 +2,7 @@
 // @name         D20+
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.3
+// @version      2.8.4
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -17,6 +17,7 @@ var D20plus = function(version) {
 		sheet: "ogl",
 		version: version,
 		timeout: 500,
+		remaining: 0,
 		scriptsLoaded: false
 	};
 
@@ -245,6 +246,12 @@ var D20plus = function(version) {
 
 		d20plus.addJournalCommands();
 
+		$("body").append(d20plus.importDialogHtml);
+		$("#d20plus-import").dialog({
+			autoOpen: false,
+			resizable: false
+		});
+
 		/*var $btn = $(d20plus.refreshButtonHtml);
 		$btn.hover(function() {
 			$btn.addClass("ui-state-hover");
@@ -362,12 +369,19 @@ var D20plus = function(version) {
 			console.log("Already Exists");
 			return;
 		} else {
+			d20plus.remaining++;
+			if(d20plus.timeout == 500){
+				$("#d20plus-import").dialog("open");
+				$("#import-remaining").text(d20plus.remaining);
+			}
 			timeout = d20plus.timeout;
 			d20plus.timeout += 2500;
 		}
 
 		setTimeout(function() {
 			d20plus.log("Running import of [" + name + "]");
+			$("#import-remaining").text(d20plus.remaining);
+			$("#import-name").text(name);
 			d20.Campaign.characters.create({
 				name: name
 			}, {
@@ -662,6 +676,12 @@ var D20plus = function(version) {
 					d20.journal.addItemToFolderStructure(character.id, folder.id);
 				}
 			});
+			d20plus.remaining--;
+			if(d20plus.remaining == 0){
+				setTimeout(function(){
+					$("#d20plus-import").dialog("close");
+				}, 1000);
+			}
 		}, timeout);
 	};
 
@@ -889,6 +909,13 @@ var D20plus = function(version) {
 			url: "https://cdnjs.cloudflare.com/ajax/libs/x2js/1.2.0/xml2json.min.js"
 		}
 	];
+
+	d20plus.importDialogHtml = `<div id="d20plus-import" title="Importing...">
+		<p>
+			<h3 id="import-name"></h3>
+		</p>
+		<span id="import-remaining"></span> remaining
+	</div>`;
 
 	d20plus.refreshButtonHtml = `<button type="button" alt="Refresh" title="Refresh" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons" role="button" aria-disabled="false">
 		<span class="ui-button-text" style="">1</span>
