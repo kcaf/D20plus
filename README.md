@@ -1,6 +1,6 @@
-# D20+
+# D20Plus
 
-D20+ is a userscript built with ♥ to enhance your Roll20 experience.  
+D20Plus is a userscript built with ♥ to enhance your Roll20 experience.  
 This userscript was built off the [d20-boilerplate](https://github.com/kcaf/d20-boilerplate).  
 Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.
 
@@ -24,4 +24,4 @@ Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.
 - Want more? Me too! [Let's Chat](https://github.com/kcaf/D20plus/issues)
 
 ## License
-D20+ is licensed under the [MIT license](https://opensource.org/licenses/MIT).
+D20Plus is licensed under the [MIT license](https://opensource.org/licenses/MIT).

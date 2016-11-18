@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         D20+
+// @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
 // @version      2.8.5
@@ -875,7 +875,7 @@ var D20plus = function(version) {
 
 	// Prettier log
 	d20plus.log = function (arg) {
-		console.log("%cD20+", "color: #3076b9; font-size: xx-large", arg);
+		console.log("%cD20Plus", "color: #3076b9; font-size: xx-large", arg);
 	};
 
 	// Return random result from rolling dice
@@ -947,7 +947,7 @@ var D20plus = function(version) {
 	</button>`;
 
 	d20plus.settingsHtml = `<hr>
-	<h3>D20+ v` + d20plus.version + `</h3>
+	<h3>D20Plus v` + d20plus.version + `</h3>
 	<p>
 		<label>Import <span style="color:red;">OGL Sheet ONLY!</span></label>
 		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
