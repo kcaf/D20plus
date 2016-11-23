@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.6
+// @version      2.8.7
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -264,12 +264,16 @@ var D20plus = function(version) {
 	};
 
 	d20plus.updateDifficulty = function() {
-		var span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
-		if(!span.length) {
-			$("div#initiativewindow").parent().find(".ui-dialog-buttonpane").prepend(d20plus.difficultyHtml);
-			span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+		var $span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
+		var $btnpane = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane");
+		if(!$span.length) {
+			$btnpane.prepend(d20plus.difficultyHtml);
+			$span = $("div#initiativewindow").parent().find(".ui-dialog-buttonpane > span.difficulty");
 		}
-		span.text("Difficulty: " + d20plus.getDifficulty());
+		$span.text("Difficulty: " + d20plus.getDifficulty());
+		if(!$btnpane.hasClass("buttonpane-absolute-position")){
+			$btnpane.addClass("buttonpane-absolute-position");
+		}
 	};
 
 	// Inject external JS libraries
@@ -971,7 +975,7 @@ var D20plus = function(version) {
 			r: "cursor: default;font-size: 15px;font-weight: bold;text-align: right;float: right;width: 10%;min-height: 20px;padding: 5px;"},
 		{s: ".ui-dialog-buttonpane span.difficulty",
 			r: "display: inline-block;padding: 5px 4px 6px;margin: .5em .4em .5em 0;font-size: 18px;"},
-		{s: ".ui-dialog .ui-dialog-buttonpane",
+		{s: ".ui-dialog-buttonpane.buttonpane-absolute-position",
 			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"},
 		{s: ".ui-dialog.dialog-collapsed .ui-dialog-buttonpane",
 			r: "position: initial;"}
