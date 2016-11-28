@@ -2,7 +2,7 @@
 
 D20Plus is a userscript built with ♥ to enhance your Roll20 experience.  
 This userscript was built off the [d20-boilerplate](https://github.com/kcaf/d20-boilerplate).  
-Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.
+Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.  
 Import compatible with DnDAppFiles Bestiary Compendium.
 
 ## Features
