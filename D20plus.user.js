@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.9.2
+// @version      2.9.3
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -568,9 +568,15 @@ var D20plus = function(version) {
 											name = v.name;
 
 										var onhit = "",
-											damagetype = "",
+											damagetype = "";
+
+										if(attack.length == 2){
+											damage = "" + attack[1];
+											tohit = "";
+										} else {
 											damage = "" + attack[2],
 											tohit = attack[1] || 0;
+										}
 
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name", current: name });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_flag", current: "on" });
@@ -674,9 +680,15 @@ var D20plus = function(version) {
 											name = v.name;
 
 										var onhit = "",
-											damagetype = "",
+											damagetype = "";
+
+										if(attack.length == 2){
+											damage = "" + attack[1];
+											tohit = "";
+										} else {
 											damage = "" + attack[2],
 											tohit = attack[1] || 0;
+										}
 
 										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_name", current: name });
 										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_flag", current: "on" });
@@ -747,7 +759,8 @@ var D20plus = function(version) {
 			d20plus.remaining--;
 			if(d20plus.remaining == 0){
 				setTimeout(function(){
-					$("#d20plus-import").dialog({title: "Import Finished!"});
+					$("#import-name").text("DONE!");
+					$("#import-remaining").text("0");
 				}, 1000);
 			}
 		}, timeout);
