@@ -6,6 +6,7 @@ Compatible with the 5th Edition ( OGL by Roll20 ) character sheet.
 Import compatible with DnDAppFiles Bestiary Compendium (XML).
 
 ## Features
+- Roll20 API not required
 - Track HP, AC, and Passive Perception on the Initiative Tracker
 - Instantly modify HP with + or -
 - Auto-Calculate difficulty for encounter
