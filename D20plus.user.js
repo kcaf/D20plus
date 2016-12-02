@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.9.1
+// @version      2.9.2
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -323,6 +323,7 @@ var D20plus = function(version) {
 							d20plus.importMonster(v);
 						} catch (e) {
 							console.log("Error Importing!", e);
+							d20plus.addImportError(v.name);
 						}
 					});
 				} catch(e) {
@@ -489,8 +490,13 @@ var D20plus = function(version) {
 						character.attribs.create({ name: "npc_senses", current: sensesStr });
 
 						if(data.save != null && data.save.length > 0) {
+							var savingthrows;
+							if(data.save instanceof Array) {
+								savingthrows = data.save;
+							} else {
+								savingthrows = data.save.split(", ");
+							}
 							character.attribs.create({ name: "npc_saving_flag", current: 1 });
-							var savingthrows = data.save.split(", ");
 							$.each(savingthrows, function (i,v) {
 								var save = v.split(" ");
 								character.attribs.create({ name: "npc_" + save[0].toLowerCase() + "_save", current: parseInt(save[1]) });
@@ -498,8 +504,13 @@ var D20plus = function(version) {
 						}
 
 						if(data.skill != null && data.skill.length > 0) {
+							var skills;
+							if(data.skill instanceof Array) {
+								skills = data.skill;
+							} else {
+								skills = data.skill.split(", ");
+							}
 							character.attribs.create({ name: "npc_skills_flag", current: 1 });
-							var skills = data.skill.split(", ");
 							$.each(skills, function (i,v) {
 								if(v.length > 0) {
 									var skill = v.match(/([\w+ ]*[^+-?\d])([+-?\d]+)/);
@@ -548,6 +559,7 @@ var D20plus = function(version) {
 										v.attack.push(tmp);
 									}
 									$.each(v.attack, function(z,x) {
+										if(!x) return;
 										var attack = x.split("|"),
 											name = "";
 										if(v.attack.length > 1)
@@ -653,6 +665,7 @@ var D20plus = function(version) {
 										v.attack.push(tmp);
 									}
 									$.each(v.attack, function(z,x) {
+										if(!x) return;
 										var attack = x.split("|"),
 											name = "";
 										if(v.attack.length > 1)
@@ -721,6 +734,7 @@ var D20plus = function(version) {
 
 					} catch (e) {
 						d20plus.log("> Error loading [" + name + "]");
+						d20plus.addImportError(name);
 						console.log(data);
 						console.log(e);
 					}
@@ -733,11 +747,21 @@ var D20plus = function(version) {
 			d20plus.remaining--;
 			if(d20plus.remaining == 0){
 				setTimeout(function(){
-					$("#d20plus-import").dialog("close");
+					$("#d20plus-import").dialog({title: "Import Finished!"});
 				}, 1000);
 			}
 		}, timeout);
 	};
+
+	// Import dialog showing names of monsters failed to import
+	d20plus.addImportError = function(name) {
+		var span = $("#import-errors");
+		if(span.text() == "0"){
+			span.text(name);
+		} else {
+			span.text(span.text() + ", " + name);
+		}
+	}
 
 	// Return XP based on monster cr
 	d20plus.getXPbyCR = function(cr) {
@@ -973,6 +997,8 @@ var D20plus = function(version) {
 			<h3 id="import-name"></h3>
 		</p>
 		<span id="import-remaining"></span> remaining
+		<p></p>
+		Errors: <span id="import-errors">0</span>
 	</div>`;
 
 	d20plus.refreshButtonHtml = `<button type="button" alt="Refresh" title="Refresh" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons" role="button" aria-disabled="false">
