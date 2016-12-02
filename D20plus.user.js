@@ -591,7 +591,8 @@ var D20plus = function(version) {
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohitrange", current: "" });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 										if(damage !== "") {
-											damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+											damage1 = damage.replace(/\s/g, "").split(/d|(?=\+|\-)/g);
+											damage[1] = damage[1].replace(/[^0-9-+]/g, "");
 											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
 											if(damage1.length < 2) {
 												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
@@ -703,7 +704,8 @@ var D20plus = function(version) {
 										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_attack_tohitrange", current: "" });
 										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 										if(damage !== "") {
-											damage1 = damage.replace(/\s/g, '').split(/d|(?=\+|\-)/g);
+											damage1 = damage.replace(/\s/g, "").split(/d|(?=\+|\-)/g);
+											damage[1] = damage[1].replace(/[^0-9-+]/g, "");
 											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
 											if(damage1.length < 2) {
 												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
