@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.9.0
+// @version      2.9.1
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -412,7 +412,7 @@ var D20plus = function(version) {
 			monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
 
 			for(i=-1; i<monsters.i.length; i++) {
-				var theFolderName = fname + ", " + findex;
+				var theFolderName = (findex == 1) ? fname : fname + " " + findex;
 				folder = monsters.i.find(function(f){return f.n == theFolderName;});
 				if(folder) {
 					if(folder.i.length >= 90) {
