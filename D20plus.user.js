@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.8.7
+// @version      2.9.0
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -219,6 +219,7 @@ var D20plus = function(version) {
 	d20plus.monsterExists = function(folderObj, folderId, name) {
 		var container = folderObj.find(function(a){return a.id == folderId;});
 			result = false;
+
 		$.each(container.i, function(i,v) {
 			var char = d20.Campaign.characters.get(v);
 			if(char && char.get("name") == name){
@@ -352,8 +353,11 @@ var D20plus = function(version) {
 
 	// Create monster character from js data object
 	d20plus.importMonster = function (data) {
-		var fname = "Monsters",
-			findex = 1;
+		var typeArr = data.type.split(","),
+			source = typeArr[typeArr.length-1],
+			fname = source.trim().capFirstLetter(),
+			findex = 1,
+			folder;
 
 		d20.journal.refreshJournalList();
 		var journalFolder = d20.Campaign.get("journalfolder");
@@ -362,33 +366,23 @@ var D20plus = function(version) {
 			d20.journal.refreshJournalList();
 			journalFolder = d20.Campaign.get("journalfolder");
 		}
-		var journalFolderObj = JSON.parse(journalFolder);
+		var journalFolderObj = JSON.parse(journalFolder),
+			monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
 
-		// clean this up later
-		for(i=0; i<99; i++) {
-			var theFolderName = fname + " " + findex;
-			folder = journalFolderObj.find( function (f) {return f.n == theFolderName;} );
-			if(folder) {
-				if(folder.i.length >= 90) {
-					findex++;
-				} else {
-					i = 100;
-				}
-			} else {
-				d20.journal.addFolderToFolderStructure(theFolderName);
-				folder = journalFolderObj.find( function (f) {return f.n == theFolderName;} );
-				i = 100;
-			}
+		if(!monsters){
+			d20.journal.addFolderToFolderStructure("Monsters");
 		}
 
-		if(!folder) return;
+		d20.journal.refreshJournalList();
+		journalFolder = d20.Campaign.get("journalfolder");
+		journalFolderObj = JSON.parse(journalFolder);
+		monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
 
 		var name = data.name || "(Unknown Name)",
-			mFolders = journalFolderObj.filter(function(a){return a.n && a.n.indexOf("Monsters ") !== -1}),
 			dupe = false;
 
-		$.each(mFolders, function(i,v) {
-			if(d20plus.monsterExists(journalFolderObj, v.id, name))
+		$.each(monsters.i, function(i,v) {
+			if(d20plus.monsterExists(monsters.i, v.id, name))
 				dupe = true;
 		});
 
@@ -411,6 +405,37 @@ var D20plus = function(version) {
 			d20plus.log("Running import of [" + name + "]");
 			$("#import-remaining").text(d20plus.remaining);
 			$("#import-name").text(name);
+
+			d20.journal.refreshJournalList();
+			journalFolder = d20.Campaign.get("journalfolder");
+			journalFolderObj = JSON.parse(journalFolder);
+			monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
+
+			for(i=-1; i<monsters.i.length; i++) {
+				var theFolderName = fname + ", " + findex;
+				folder = monsters.i.find(function(f){return f.n == theFolderName;});
+				if(folder) {
+					if(folder.i.length >= 90) {
+						findex++;
+					} else {
+						break;
+					}
+				} else {
+					d20.journal.addFolderToFolderStructure(theFolderName, monsters.id);
+					d20.journal.refreshJournalList();
+					journalFolder = d20.Campaign.get("journalfolder");
+					journalFolderObj = JSON.parse(journalFolder);
+					monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
+					folder = monsters.i.find(function(f){return f.n == theFolderName;});
+					break;
+				}
+			}
+
+			if(!folder) {
+				console.log("> Failed to find or create source folder!");
+				return;
+			}
+
 			d20.Campaign.characters.create({
 				name: name
 			}, {
@@ -910,6 +935,10 @@ var D20plus = function(version) {
 			html = html.replace("||"+i+"||", v);
 		});
 		return html;
+	};
+
+	String.prototype.capFirstLetter = function(){
+		return this.replace(/\w\S*/g, function(w){return w.charAt(0).toUpperCase() + w.substr(1).toLowerCase();});
 	};
 
 	/*  */
