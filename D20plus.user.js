@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.10.0
+// @version      2.10.1
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -600,7 +600,7 @@ var D20plus = function(version) {
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 										if(damage !== "") {
 											damage1 = damage.replace(/\s/g, "").split(/d|(?=\+|\-)/g);
-											damage[1] = damage[1].replace(/[^0-9-+]/g, "");
+											damage1[1] = damage1[1].replace(/[^0-9-+]/g, "");
 											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
 											if(damage1.length < 2) {
 												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
@@ -713,7 +713,7 @@ var D20plus = function(version) {
 										character.attribs.create({ name: "repeating_npcaction-l_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 										if(damage !== "") {
 											damage1 = damage.replace(/\s/g, "").split(/d|(?=\+|\-)/g);
-											damage[1] = damage[1].replace(/[^0-9-+]/g, "");
+											damage1[1] = damage1[1].replace(/[^0-9-+]/g, "");
 											damage2 = isNaN(eval(damage1[1])) === false ? eval(damage1[1]) : 0;
 											if(damage1.length < 2) {
 												onhit = onhit + damage1[0] + " (" + damage + ")" + damagetype + " damage";
