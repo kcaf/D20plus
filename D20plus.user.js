@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.9.4
+// @version      2.10.0
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -253,15 +253,23 @@ var D20plus = function(version) {
 			resizable: false
 		});
 
-		/*var $btn = $(d20plus.refreshButtonHtml);
-		$btn.hover(function() {
-			$btn.addClass("ui-state-hover");
-		}, function() {
-			$btn.removeClass("ui-state-hover");
-		}).on(window.mousedowntype, function() {
-			d20.Campaign.initiativewindow._rebuildInitiativeList();
+		// Removed until I can figure out a way to show the new version without the certificate error
+		/*$("body").append(d20plus.dmscreenHtml);
+		var $dmsDialog = $("#dmscreen-dialog");
+		$dmsDialog.dialog({
+			title: "DM Screen",
+			width: 700,
+			height: 515,
+			autoOpen: false
 		});
-		$("div#initiativewindow").parent().find(".ui-dialog-buttonpane > .ui-dialog-buttonset").prepend($btn);*/
+
+		$("#floatingtoolbar > ul").append(d20plus.dmscreenButton);
+		$("#dmscreen-button").on(window.mousedowntype, function(){
+			if($dmsDialog.dialog("isOpen"))
+				$dmsDialog.dialog("close");
+			else
+				$dmsDialog.dialog("open");
+		});*/
 	};
 
 	d20plus.updateDifficulty = function() {
@@ -770,11 +778,11 @@ var D20plus = function(version) {
 
 	// Import dialog showing names of monsters failed to import
 	d20plus.addImportError = function(name) {
-		var span = $("#import-errors");
-		if(span.text() == "0"){
-			span.text(name);
+		var $span = $("#import-errors");
+		if($span.text() == "0"){
+			$span.text(name);
 		} else {
-			span.text(span.text() + ", " + name);
+			$span.text($span.text() + ", " + name);
 		}
 	}
 
@@ -981,6 +989,15 @@ var D20plus = function(version) {
 	};
 
 	/*  */
+	d20plus.dmscreenButton = `<li id="dmscreen-button" tip="DM Screen">
+		<span class="pictos">N</span>
+	</li>`;
+
+	// This is an older version of the repo. The newer version has a security error when loaded over SSL :(
+	d20plus.dmscreenHtml = `<div id="dmscreen-dialog">
+		<iframe src="//ftwinston.github.io/5edmscreen/mobile"></iframe>
+	</div>`;
+
 	d20plus.difficultyHtml = `<span class="difficulty"></span>`;
 
 	d20plus.multipliers = [1, 1.5, 2, 2.5, 3, 4, 5];
@@ -1035,20 +1052,31 @@ var D20plus = function(version) {
 	</p>`;
 
 	d20plus.cssRules = [
-		{s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr",
-			r: "font-size: 25px;font-weight: bold;text-align: right;float: right;padding: 5px;width: 10%;min-height: 20px;"},
-		{s: "#initiativewindow ul li span.editable input",
-			r: "width: 100%; box-sizing: border-box;height: 100%;"},
-		{s: "#initiativewindow div.header",
-			r: "height: 30px;"},
-		{s: "#initiativewindow div.header span",
-			r: "cursor: default;font-size: 15px;font-weight: bold;text-align: right;float: right;width: 10%;min-height: 20px;padding: 5px;"},
-		{s: ".ui-dialog-buttonpane span.difficulty",
-			r: "display: inline-block;padding: 5px 4px 6px;margin: .5em .4em .5em 0;font-size: 18px;"},
-		{s: ".ui-dialog-buttonpane.buttonpane-absolute-position",
-			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"},
-		{s: ".ui-dialog.dialog-collapsed .ui-dialog-buttonpane",
-			r: "position: initial;"}
+		{
+			s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr",
+			r: "font-size: 25px;font-weight: bold;text-align: right;float: right;padding: 5px;width: 10%;min-height: 20px;"
+		},{
+			s: "#initiativewindow ul li span.editable input",
+			r: "width: 100%; box-sizing: border-box;height: 100%;"
+		},{
+			s: "#initiativewindow div.header",
+			r: "height: 30px;"
+		},{
+			s: "#initiativewindow div.header span",
+			r: "cursor: default;font-size: 15px;font-weight: bold;text-align: right;float: right;width: 10%;min-height: 20px;padding: 5px;"
+		},{
+			s: ".ui-dialog-buttonpane span.difficulty",
+			r: "display: inline-block;padding: 5px 4px 6px;margin: .5em .4em .5em 0;font-size: 18px;"
+		},{
+			s: ".ui-dialog-buttonpane.buttonpane-absolute-position",
+			r: "position: absolute;bottom: 0;box-sizing: border-box;width: 100%;"
+		},{
+			s: ".ui-dialog.dialog-collapsed .ui-dialog-buttonpane",
+			r: "position: initial;"
+		},{
+			s: "#dmscreen-dialog iframe",
+			r: "width: 100%;height: 100%;position: absolute;top: 0;left: 0;border: 0;"
+		}
 	];
 
 	d20plus.initiativeHeaders = `<div class="header">
