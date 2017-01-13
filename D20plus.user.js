@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.10.2
+// @version      2.10.3
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -63,29 +63,36 @@ var D20plus = function(version) {
 
 	// Bind Graphics Add on page
 	d20plus.bindGraphics = function(page) {
-		page.thegraphics.on("add", function(e) {
-			var character = e.character;
-			if(character) {
-				var	npc = character.attribs.find(function(a){return a.get("name").toLowerCase() == "npc"; }),
-					isNPC = npc ? parseInt(npc.get("current")) : 0;
-				if(isNPC) {
-					var hpf = character.attribs.find(function(a){return a.get("name").toLowerCase() == "npc_hpformula"; });
-					if(hpf) {
-						var hpformula = hpf.get("current");
-						if(hpformula) {
-							d20plus.randomRoll(hpformula, function(result) {
-								e.attributes.bar3_value = result.total;
-								e.attributes.bar3_max = result.total;
-								d20plus.log("> Rolled HP for [" + character.get("name") + "]");
-							}, function(error) {
-								d20plus.log("> Error Rolling HP Dice");
-								console.log(error);
-							});
+		try {
+			if(page.get("archived") == false) {
+				page.thegraphics.on("add", function(e) {
+					var character = e.character;
+					if(character) {
+						var	npc = character.attribs.find(function(a){return a.get("name").toLowerCase() == "npc"; }),
+							isNPC = npc ? parseInt(npc.get("current")) : 0;
+						if(isNPC) {
+							var hpf = character.attribs.find(function(a){return a.get("name").toLowerCase() == "npc_hpformula"; });
+							if(hpf) {
+								var hpformula = hpf.get("current");
+								if(hpformula) {
+									d20plus.randomRoll(hpformula, function(result) {
+										e.attributes.bar3_value = result.total;
+										e.attributes.bar3_max = result.total;
+										d20plus.log("> Rolled HP for [" + character.get("name") + "]");
+									}, function(error) {
+										d20plus.log("> Error Rolling HP Dice");
+										console.log(error);
+									});
+								}
+						}
 						}
 					}
-				}
+				});
 			}
-		});
+		}catch(e){
+			console.log("D20Plus bindGraphics Exception",e);
+			console.log("PAGE", page);
+		}
 	};
 
 	// Create new Journal commands
@@ -137,79 +144,84 @@ var D20plus = function(version) {
 			players = [],
 			npcs = [];
 
-		$.each(d20.Campaign.initiativewindow.cleanList(), function(i, v) {
-			var token, char,
-				page = d20.Campaign.pages.get(v._pageid);
-			if(page) token = page.thegraphics.get(v.id);
-			if(token) char = token.character;
-			if(char) {
-				var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() === "npc";});
-				if(npc && npc.get("current") == "1"){
-					npcs.push(char);
-				} else {
-					var level = char.attribs.find(function(a){return a.get("name").toLowerCase() === "level";});
-					// Can't determine difficulty without level
-					if(!level || partyXPThreshold == null) {
-						partyXPThreshold = null;
-						return;
+		try {
+			$.each(d20.Campaign.initiativewindow.cleanList(), function(i, v) {
+				var token, char,
+					page = d20.Campaign.pages.get(v._pageid);
+				if(page) token = page.thegraphics.get(v.id);
+				if(token) char = token.character;
+				if(char) {
+					var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() === "npc";});
+					if(npc && npc.get("current") == "1"){
+						npcs.push(char);
+					} else {
+						var level = char.attribs.find(function(a){return a.get("name").toLowerCase() === "level";});
+						// Can't determine difficulty without level
+						if(!level || partyXPThreshold == null) {
+							partyXPThreshold = null;
+							return;
+						}
+
+						// Total party threshold
+						for(i=0; i<partyXPThreshold.length; i++) {
+							partyXPThreshold[i] += d20plus.getXPbyLevel(level.get("current"))[i];
+						}
+						players.push(players.length+1);
 					}
-
-					// Total party threshold
-					for(i=0; i<partyXPThreshold.length; i++) {
-						partyXPThreshold[i] += d20plus.getXPbyLevel(level.get("current"))[i];
-					}
-					players.push(players.length+1);
-				}
-			}
-		});
-
-		if (!players.length) {
-			return difficulty;
-		}
-
-		// If a player doesn't have level set, fail out.
-		if(partyXPThreshold !== null){
-			var len = npcs.length,
-				multiplier = 0,
-				adjustedxp = 0,
-				xp = 0,
-				index = 0;
-
-			// Adjust for number of monsters
-			if(len < 2) index = 0; else
-				if(len < 3) index = 1; else
-					if(len < 7) index = 2; else
-						if(len < 11) index = 3; else
-							if(len < 15) index = 4; else
-								index = 5;
-
-			// Adjust for smaller parties
-			if( players.length < 3)
-				index++;
-
-			// Set multiplier
-			multiplier = d20plus.multipliers[index];
-
-			// Total monster xp
-			$.each(npcs, function(i, v) {
-				var cr = v.attribs.find(function(a){return a.get("name").toLowerCase() === "npc_challenge";});
-				if(cr){
-					xp += parseInt(d20plus.getXPbyCR(cr.get("current")));
 				}
 			});
 
-			// Encounter's adjusted xp
-			adjustedxp = xp * multiplier;
+			if (!players.length) {
+				return difficulty;
+			}
 
-			console.log("Party XP Threshold",partyXPThreshold);
-			console.log("Adjusted XP",adjustedxp);
+			// If a player doesn't have level set, fail out.
+			if(partyXPThreshold !== null){
+				var len = npcs.length,
+					multiplier = 0,
+					adjustedxp = 0,
+					xp = 0,
+					index = 0;
 
-			// Determine difficulty
-			if(adjustedxp < partyXPThreshold[0]) difficulty = "Trivial"; else
-				if(adjustedxp < partyXPThreshold[1]) difficulty = "Easy"; else
-					if(adjustedxp < partyXPThreshold[2]) difficulty = "Medium"; else
-						if(adjustedxp < partyXPThreshold[3]) difficulty = "Hard"; else
-							difficulty = "Deadly";
+				// Adjust for number of monsters
+				if(len < 2) index = 0; else
+					if(len < 3) index = 1; else
+						if(len < 7) index = 2; else
+							if(len < 11) index = 3; else
+								if(len < 15) index = 4; else
+									index = 5;
+
+				// Adjust for smaller parties
+				if( players.length < 3)
+					index++;
+
+				// Set multiplier
+				multiplier = d20plus.multipliers[index];
+
+				// Total monster xp
+				$.each(npcs, function(i, v) {
+					var cr = v.attribs.find(function(a){return a.get("name").toLowerCase() === "npc_challenge";});
+					if(cr){
+						xp += parseInt(d20plus.getXPbyCR(cr.get("current")));
+					}
+				});
+
+				// Encounter's adjusted xp
+				adjustedxp = xp * multiplier;
+
+				console.log("Party XP Threshold",partyXPThreshold);
+				console.log("Adjusted XP",adjustedxp);
+
+				// Determine difficulty
+				if(adjustedxp < partyXPThreshold[0]) difficulty = "Trivial"; else
+					if(adjustedxp < partyXPThreshold[1]) difficulty = "Easy"; else
+						if(adjustedxp < partyXPThreshold[2]) difficulty = "Medium"; else
+							if(adjustedxp < partyXPThreshold[3]) difficulty = "Hard"; else
+								difficulty = "Deadly";
+			}
+
+		}catch(e){
+			console.log("D20Plus getDifficulty Exception", e);
 		}
 
 		return difficulty;
