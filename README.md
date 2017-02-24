@@ -8,7 +8,7 @@ This branch includes support for 5etools JSON files.
 
 ## Installation (3 steps)
 1. Make sure you have [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey) or [Tampermonkey](https://tampermonkey.net) installed  
-2. [Click here](https://github.com/5egmegaanon/D20plus/blob/master/D20plus.user.js) to bring up the installer  
+2. [Click here](https://github.com/5egmegaanon/D20plus/raw/master/D20plus.user.js) to bring up the installer  
 3. Open up Roll20 and you're done!  
 
 
