@@ -252,7 +252,7 @@ var D20plus = function(version) {
 		d20.Campaign.initiativewindow._rebuildInitiativeList();
 		d20plus.hpAllowEdit();
 
-		d20.Campaign.initiativewindow.model.on("change:turnorder", function() { 
+		d20.Campaign.initiativewindow.model.on("change:turnorder", function() {
 			d20plus.updateDifficulty();
 		});
 		d20plus.updateDifficulty();
@@ -327,17 +327,18 @@ var D20plus = function(version) {
 	d20plus.loadMonstersXML = function(url) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
+		var datatype = $("#d20plus-datatype").val();
 		$.ajax({
 			type: "GET",
 			url: url,
-			dataType: "xml",
-			success: function (xml) {
+			dataType: datatype,
+			success: function (data) {
 				try{
-					d20plus.log("Importing XML");
-					json = x2js.xml2json(xml);
-					console.log(json.compendium.monster.length);
-					var length = json.compendium.monster.length;
-					$.each(json.compendium.monster, function(i,v) {
+					d20plus.log("Importing Data");
+					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : data;
+					console.log(monsterdata.compendium.monster.length);
+					var length = monsterdata.compendium.monster.length;
+					$.each(monsterdata.compendium.monster, function(i,v) {
 						try {
 							console.log("> " + (i+1) + "/" + length + " Attempting to import monster [" + v.name + "]");
 							d20plus.importMonster(v);
@@ -1059,9 +1060,17 @@ var D20plus = function(version) {
 	</p>
 	<p>
 		<label>Select your character sheet</label>
-		<select class="d20plus-sheet" style="width: 150px;">
+		<select class="d20plus-sheet">
 			<option value="ogl">5th Edition ( OGL by Roll20 )</option>
 			<option value="community">5th Edition (Community Contributed)</option>
+			<option value="shaped">5th Edition Shaped (Community Contributed)</option>
+		</select>
+	</p>
+	<p>
+		<label>Select the data type</label>
+		<select id="d20plus-datatype" value="xml">
+			<option value="xml">XML</option>
+			<option value="json">JSON</option>
 		</select>
 	</p>`;
 
