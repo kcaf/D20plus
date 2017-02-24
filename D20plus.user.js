@@ -328,14 +328,15 @@ var D20plus = function(version) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
 		var datatype = $("#d20plus-datatype").val();
+		if (datatype === "json") datatype = "text";
 		$.ajax({
 			type: "GET",
 			url: url,
 			dataType: datatype,
 			success: function (data) {
 				try{
-					d20plus.log("Importing Data");
-					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : data;
+					d20plus.log("Importing Data (" + $("#d20plus-datatype").val().toUpperCase() + ")");
+					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 					console.log(monsterdata.compendium.monster.length);
 					var length = monsterdata.compendium.monster.length;
 					$.each(monsterdata.compendium.monster, function(i,v) {
@@ -360,7 +361,7 @@ var D20plus = function(version) {
 				} else if (jqXHR.status == 500) {
 					msg = "Internal Server Error [500]";
 				} else if (exception === 'parsererror') {
-					msg = "XML parse failed";
+					msg = "Data parse failed";
 				} else if (exception === 'timeout') {
 					msg = "Timeout";
 				} else if (exception === 'abort') {
