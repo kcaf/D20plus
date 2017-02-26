@@ -1094,9 +1094,8 @@ var D20plus = function(version) {
 	</button>`;
 
 	d20plus.settingsHtml = `<hr>
-	<h3>D20Plus v` + d20plus.version + `</h3>
 	<p>
-		<label>Import <span style="color:red;">OGL Sheet ONLY!</span></label>
+		<h3>5etoolsR20 v` + d20plus.version + `</h3>
 		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
 	</p>
 	<p>
