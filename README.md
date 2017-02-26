@@ -5,7 +5,9 @@
 ## Installation (3 steps)
 1. Make sure you have [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey) or [Tampermonkey](https://tampermonkey.net) installed  
 2. [Click here](https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js) to bring up the installer  
-3. Open up Roll20 and you're done!  
+3. Open up Roll20 and you're done! 
+
+You can use 5etools' bestiary data by supplying the following link to the script: https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json
 
 
 ## License
