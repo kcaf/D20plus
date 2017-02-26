@@ -260,9 +260,14 @@ var D20plus = function(version) {
 		d20plus.addJournalCommands();
 
 		$("body").append(d20plus.importDialogHtml);
+		$("body").append(d20plus.importListHTML);
 		$("#d20plus-import").dialog({
 			autoOpen: false,
 			resizable: false
+		});
+		$("#d20plus-importlist").dialog({
+			autoOpen: false,
+			resizable: true
 		});
 
 		// Removed until I can figure out a way to show the new version without the certificate error
@@ -319,12 +324,12 @@ var D20plus = function(version) {
 	d20plus.buttonMonsterClicked = function() {
 		var url = window.prompt("Input the URL of the Monster XML file");
 		if (url != null) {
-			d20plus.loadMonstersXML(url);
+			d20plus.loadMonstersData(url);
 		}
 	};
 
 	// Fetch monster data from XML url and import it
-	d20plus.loadMonstersXML = function(url) {
+	d20plus.loadMonstersData = function(url) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
 		var datatype = $("#d20plus-datatype").val();
@@ -334,21 +339,47 @@ var D20plus = function(version) {
 			url: url,
 			dataType: datatype,
 			success: function (data) {
-				try{
+				try {
 					d20plus.log("Importing Data (" + $("#d20plus-datatype").val().toUpperCase() + ")");
 					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 					console.log(monsterdata.compendium.monster.length);
 					var length = monsterdata.compendium.monster.length;
+
+					// building list for checkboxes
+					$("#import-list").html("");
 					$.each(monsterdata.compendium.monster, function(i,v) {
 						try {
-							console.log("> " + (i+1) + "/" + length + " Attempting to import monster [" + v.name + "]");
-							d20plus.importMonster(v);
+							$("#import-list").append(`<label><input type="checkbox" data-listid="`+i+`"> <span>`+v.name+`</span></label>`);
 						} catch (e) {
-							console.log("Error Importing!", e);
+							console.log("Error building list!", e);
 							d20plus.addImportError(v.name);
 						}
 					});
-				} catch(e) {
+
+						$("#d20plus-importlist").dialog("open");
+
+						$("#d20plus-importlist input#importlist-selectall").unbind("click");
+						$("#d20plus-importlist input#importlist-selectall").bind("click", function() {
+							$("#import-list input").prop("checked", $(this).prop("checked"));
+						});
+
+						$("#d20plus-importlist button").unbind("click");
+						$("#d20plus-importlist button#importstart").bind("click", function() {
+							$("#d20plus-importlist").dialog("close");
+							$("#import-list input").each(function() {
+								if (!$(this).prop("checked")) return;
+								var monsternum = parseInt($(this).data("listid"));
+								var curmonster = monsterdata.compendium.monster[monsternum];
+								try {
+									console.log("> " + (monsternum+1) + "/" + length + " Attempting to import monster [" + curmonster.name + "]");
+									d20plus.importMonster(curmonster);
+								} catch (e) {
+									console.log("Error Importing!", e);
+									d20plus.addImportError(curmonster.name);
+								}
+						});
+					});
+			} catch(e) {
 					console.log("> Exception ", e);
 				}
 			},
@@ -1040,6 +1071,15 @@ var D20plus = function(version) {
 		}
 	];
 
+	d20plus.importListHTML = `<div id="d20plus-importlist" title="Choose which monsters to import">
+	<p><input type="checkbox" title="Select all" id="importlist-selectall"></p>
+	<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
+	<p></p>
+	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">>
+		<span>Load Monsters</span>
+	</button>
+	</div>`
+
 	d20plus.importDialogHtml = `<div id="d20plus-import" title="Importing...">
 		<p>
 			<h3 id="import-name"></h3>
@@ -1069,9 +1109,9 @@ var D20plus = function(version) {
 	</p>
 	<p>
 		<label>Select the data type</label>
-		<select id="d20plus-datatype" value="xml">
+		<select id="d20plus-datatype" value="json">
+		<option value="json">JSON</option>
 			<option value="xml">XML</option>
-			<option value="json">JSON</option>
 		</select>
 	</p>`;
 
