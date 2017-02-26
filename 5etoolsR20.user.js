@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name         D20Plus
-// @namespace    https://github.com/kcaf
+// @name         5etoolsR20
+// @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.10.3
-// @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
-// @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
+// @version      0.1
+// @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
+// @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
-// @author       kcaf
+// @author       5egmegaanon
 // @match        https://app.roll20.net/editor/
 // @grant        unsafeWindow
 // @run-at       document-start
