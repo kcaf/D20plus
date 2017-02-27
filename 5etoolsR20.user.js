@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.1.2
+// @version      0.2.0
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -17,6 +17,7 @@
 var D20plus = function(version) {
 
 	var monsterdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json";
+	var spelldataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/spells.json";
 
 	var d20plus = {
 		sheet: "ogl",
@@ -233,15 +234,15 @@ var D20plus = function(version) {
 	};
 
 	// Determine if folder contains monster by that name
-	d20plus.monsterExists = function(folderObj, folderId, name) {
+	d20plus.objectExists = function(folderObj, folderId, name) {
 		var container = folderObj.find(function(a){return a.id == folderId;});
 			result = false;
 
 		$.each(container.i, function(i,v) {
 			var char = d20.Campaign.characters.get(v);
-			if(char && char.get("name") == name){
-				result = true;
-			}
+			var handout = d20.Campaign.handouts.get(v);
+			if (char && char.get("name") === name) result = true;
+			if (handout && handout.get("name") === name) result = true;
 		});
 		return result;
 	};
@@ -250,7 +251,8 @@ var D20plus = function(version) {
 	d20plus.addHTML = function() {
 		$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
 		$("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
-		$("#mysettings > .content a#d20plus-btn-im").on(window.mousedowntype, d20plus.buttonMonsterClicked);
+		$("#mysettings > .content a#import-monster-button").on(window.mousedowntype, d20plus.buttonMonsterClicked);
+		$("#mysettings > .content a#import-spell-button").on(window.mousedowntype, d20plus.buttonSpellClicked);
 
 		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
 		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
@@ -338,7 +340,7 @@ var D20plus = function(version) {
 	d20plus.loadMonstersData = function(url) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
-		var datatype = $("#d20plus-monster-datatype").val();
+		var datatype = $("#import-monster-datatype").val();
 		if (datatype === "json") datatype = "text";
 		$.ajax({
 			type: "GET",
@@ -346,7 +348,7 @@ var D20plus = function(version) {
 			dataType: datatype,
 			success: function (data) {
 				try {
-					d20plus.log("Importing Data (" + $("#d20plus-monster-datatype").val().toUpperCase() + ")");
+					d20plus.log("Importing Data (" + $("#import-monster-datatype").val().toUpperCase() + ")");
 					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 					console.log(monsterdata.compendium.monster.length);
 					var length = monsterdata.compendium.monster.length;
@@ -442,7 +444,7 @@ var D20plus = function(version) {
 			dupe = false;
 
 		$.each(monsters.i, function(i,v) {
-			if(d20plus.monsterExists(monsters.i, v.id, name))
+			if(d20plus.objectExists(monsters.i, v.id, name))
 				dupe = true;
 		});
 
@@ -1037,6 +1039,257 @@ var D20plus = function(version) {
 		return html;
 	};
 
+	// Import spell button was clicked
+	d20plus.buttonSpellClicked = function() {
+		var url = $("#import-spell-url").val();
+		// window.prompt("Input the URL of the Monster XML file");
+		if (url != null) {
+			d20plus.loadSpellsData(url);
+		}
+	};
+
+	// Fetch spell data from file
+	d20plus.loadSpellsData = function (url) {
+		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
+		var x2js = new X2JS();
+		var datatype = $("#import-spell-datatype").val();
+		if (datatype === "json") datatype = "text";
+
+		$.ajax({
+			type: "GET",
+			url: url,
+			dataType: datatype,
+			success: function (data) {
+				try {
+					d20plus.log("Importing Data (" + $("#import-spell-datatype").val().toUpperCase() + ")");
+					spelldata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
+					console.log(spelldata.compendium.spell.length);
+					var length = spelldata.compendium.spell.length;
+
+					// building list for checkboxes
+					$("#import-list").html("");
+					$.each(spelldata.compendium.spell, function(i,v) {
+						try {
+							$("#import-list").append(`<label><input type="checkbox" data-listid="`+i+`"> <span>`+v.name+`</span></label>`);
+						} catch (e) {
+							console.log("Error building list!", e);
+							d20plus.addImportError(v.name);
+						}
+					});
+
+						$("#import-organizebysource").parent().hide();
+						$("#d20plus-importlist").dialog("open");
+
+						$("#d20plus-importlist input#importlist-selectall").unbind("click");
+						$("#d20plus-importlist input#importlist-selectall").bind("click", function() {
+							$("#import-list input").prop("checked", $(this).prop("checked"));
+						});
+
+						$("#d20plus-importlist button").unbind("click");
+						$("#d20plus-importlist button#importstart").bind("click", function() {
+							$("#d20plus-importlist").dialog("close");
+							$("#import-organizebysource").parent().show();
+							$("#import-list input").each(function() {
+								if (!$(this).prop("checked")) return;
+								var spellnum = parseInt($(this).data("listid"));
+								var curspell = spelldata.compendium.spell[spellnum];
+								try {
+									console.log("> " + (spellnum+1) + "/" + length + " Attempting to import spell [" + curspell.name + "]");
+									d20plus.importSpell(curspell);
+								} catch (e) {
+									console.log("Error Importing!", e);
+									d20plus.addImportError(curspell.name);
+								}
+						});
+					});
+			} catch(e) {
+					console.log("> Exception ", e);
+				}
+			},
+			 error: function (jqXHR, exception) {
+				var msg = "";
+				if (jqXHR.status === 0) {
+					msg = "Could not connect.\n Check Network";
+				} else if (jqXHR.status == 404) {
+					msg = "Page not found [404]";
+				} else if (jqXHR.status == 500) {
+					msg = "Internal Server Error [500]";
+				} else if (exception === 'parsererror') {
+					msg = "Data parse failed";
+				} else if (exception === 'timeout') {
+					msg = "Timeout";
+				} else if (exception === 'abort') {
+					msg = "Request aborted";
+				} else {
+					msg = "Uncaught Error.\n" + jqXHR.responseText;
+				}
+				d20plus.log("> ERROR: " + msg);
+			}
+		});
+	};
+
+	// parse spell levels
+	function parseSpellLevel (level) {
+		if (isNaN (level)) return false;
+		if (level === "0") return "cantrip"
+		if (level === "2") return level+"nd";
+		if (level === "3") return level+"rd";
+		if (level === "1") return level+"st";
+		return level+"th";
+	}
+
+	// parse spell school
+	function parseSpellSchool (school) {
+		if (school == "A") return "abjuration";
+		if (school == "EV") return "evocation";
+		if (school == "EN") return "enchantment";
+		if (school == "I") return "illusion";
+		if (school == "D") return "divination";
+		if (school == "N") return "necromancy";
+		if (school == "T") return "transmutation";
+		if (school == "C") return "conjuration";
+		return false;
+	}
+
+	// Import individual spells
+	d20plus.importSpell = function (data) {
+
+		var source = parseSpellLevel(data.level);
+		if (source !== "cantrip") source += " level";
+		var fname = source.trim().capFirstLetter();
+		var findex = 1;
+		var folder;
+
+		d20.journal.refreshJournalList();
+		var journalFolder = d20.Campaign.get("journalfolder");
+		if(journalFolder === ""){
+			d20.journal.addFolderToFolderStructure("Characters");
+			d20.journal.refreshJournalList();
+			journalFolder = d20.Campaign.get("journalfolder");
+		}
+		var journalFolderObj = JSON.parse(journalFolder),
+			spells = journalFolderObj.find(function(a){return a.n && a.n == "Spells"});
+
+		if (!spells) {
+			d20.journal.addFolderToFolderStructure("Spells");
+		}
+
+		d20.journal.refreshJournalList();
+		journalFolder = d20.Campaign.get("journalfolder");
+		journalFolderObj = JSON.parse(journalFolder);
+		spells = journalFolderObj.find(function(a){return a.n && a.n == "Spells"});
+
+		var name = data.name || "(Unknown Name)";
+		var dupe = false;
+
+		// check for duplicates
+		$.each(spells.i, function(i,v) {
+				if (d20plus.objectExists (spells.i, v.id, name)) dupe = true;
+		});
+
+		if (dupe) {
+			console.log ("Already Exists");
+			return;
+		}
+
+		d20plus.remaining++;
+		if (d20plus.timeout == 500) {
+			$("#d20plus-import").dialog("open");
+			$("#import-reminaing").text("d20plus.remaining");
+		}
+		timeout = d20plus.timeout;
+		d20plus.timeout += 2500;
+
+		setTimeout (function() {
+			d20plus.log("Running import of [" + name + "]");
+			$("#import-remaining").text(d20plus.remaining);
+			$("#import-name").text(name);
+
+			d20.journal.refreshJournalList();
+			journalFolder = d20.Campaign.get("journalfolder");
+			journalFolderObj = JSON.parse(journalFolder);
+			spells = journalFolderObj.find(function(a){return a.n && a.n == "Spells"});
+
+
+			// make source folder
+			for(i=-1; i<spells.i.length; i++) {
+				var theFolderName = (findex == 1) ? fname : fname + " " + findex;
+				folder = spells.i.find(function(f){return f.n == theFolderName;});
+				if(folder) {
+					if(folder.i.length >= 90) {
+						findex++;
+					} else {
+						break;
+					}
+				} else {
+					d20.journal.addFolderToFolderStructure(theFolderName, spells.id);
+					d20.journal.refreshJournalList();
+					journalFolder = d20.Campaign.get("journalfolder");
+					journalFolderObj = JSON.parse(journalFolder);
+					spells = journalFolderObj.find(function(a){return a.n && a.n == "Spells"});
+					folder = spells.i.find(function(f){return f.n == theFolderName;});
+					break;
+				}
+			}
+
+			if (!folder) {
+				console.log("> Failed to find or create source folder!");
+				return;
+			}
+
+			// build spell handout
+			d20.Campaign.handouts.create({
+				name: name
+			}, {
+				success: function (handout) {
+					var notecontents = "";
+
+					notecontents += `<p><h3>`+data.name+`</h3>`;
+
+					var level = parseSpellLevel(data.level);
+					var school = parseSpellSchool(data.school);
+					var levelschool = (level === "cantrip") ? school + " " + level : level + "-level " + school;
+					levelschool = levelschool.charAt(0).toUpperCase() + levelschool.slice(1)
+					notecontents += `<em>`+levelschool+`</em></p><p>`;
+
+					notecontents += `<strong>Casting Time:</strong> ` + data.time + `<br>`;
+					notecontents += `<strong>Range:</strong> ` + data.range + `<br>`;
+					notecontents += `<strong>Components:</strong> ` + data.components + `<br>`;
+					notecontents += `<strong>Duration:</strong> ` + data.duration + `<br>`;
+					notecontents += `</p>`
+
+					var spelltext = data.text;
+
+					if (spelltext[0].length === 1) {
+						notecontents += `<p>`+spelltext+`</p>`;
+					} else for (var n = 0; n < spelltext.length; n++) {
+						if (!spelltext[n]) continue;
+						notecontents += `<p>`+spelltext[n].replace("At Higher Levels: ", "<strong>At Higher Levels:</strong> ").replace("This spell can be found in the Elemental Evil Player's Companion","")+`</p>`;
+					}
+
+					notecontents += `<p><strong>Classes:</strong> `+data.classes+`</p>`
+
+					handout.updateBlobs( {
+						notes: notecontents
+					});
+					handout.save({
+						notes: (new Date).getTime()
+					});
+
+					d20.journal.addItemToFolderStructure(handout.id, folder.id);
+				}
+			});
+		d20plus.remaining--;
+		if(d20plus.remaining == 0){
+			setTimeout(function(){
+				$("#import-name").text("DONE!");
+				$("#import-remaining").text("0");
+			}, 1000);
+		}
+	}, timeout);
+
+	};
+
 	String.prototype.capFirstLetter = function(){
 		return this.replace(/\w\S*/g, function(w){return w.charAt(0).toUpperCase() + w.substr(1).toLowerCase();});
 	};
@@ -1077,14 +1330,14 @@ var D20plus = function(version) {
 		}
 	];
 
-	d20plus.importListHTML = `<div id="d20plus-importlist" title="Import Monsters...">
+	d20plus.importListHTML = `<div id="d20plus-importlist" title="Import...">
 	<p><input type="checkbox" title="Select all" id="importlist-selectall"></p>
 	<p>
 		<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
 	</p>
 	<p><label><input type="checkbox" title="Import by source" id="import-organizebysource"> Import by source instead of type?</label></p>
 	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">
-		<span>Load Monsters</span>
+		<span>Load</span>
 	</button>
 	</div>`
 
@@ -1107,11 +1360,11 @@ var D20plus = function(version) {
 	</p>
 	<p>
 		<h4>Monster Importing</h4>
-		<label for="import-monster-url">Data URL:</label>
+		<label for="import-monster-url">Monster Data URL:</label>
 		<input type="text" id="import-monster-url" value="`+monsterdataurl+`">
 
 		<label>Data Type:</label>
-			<select id="d20plus-monster-datatype" value="json">
+			<select id="import-monster-datatype" value="json">
 				<option value="json">JSON</option>
 				<option value="xml">XML</option>
 			</select>
@@ -1123,11 +1376,21 @@ var D20plus = function(version) {
 		<!-- <option value="shaped">5th Edition Shaped (Community Contributed)</option> -->
 		</select>
 
-		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
+		<a class="btn" href="#" id="import-monster-button">Import Monsters</a>
 	</p>
 	<p>
 		<h4>Spell Importing</h4>
 		Coming soon!
+		<label for="import-spell-url">Spell Data URL:</label>
+		<input type="text" id="import-spell-url" value="`+spelldataurl+`">
+
+		<label>Data Type:</label>
+			<select id="import-spell-datatype" value="json">
+				<option value="json">JSON</option>
+				<option value="xml">XML</option>
+			</select>
+
+		<a class="btn" href="#" id="import-spell-button">Import Spells</a>
 	</p>
 	<p>
 		<h4>Item Importing</h4>
