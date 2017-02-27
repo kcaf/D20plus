@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.2.2
+// @version      0.3.0
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -247,6 +247,27 @@ var D20plus = function(version) {
 		return result;
 	};
 
+	// Find and delete object in folder of given name
+	d20plus.deleteObject = function(folderObj, folderId, name) {
+		var container = folderObj.find(function(a){return a.id == folderId;});
+			result = false;
+
+		$.each(container.i, function(i,v) {
+			var char = d20.Campaign.characters.get(v);
+			var handout = d20.Campaign.handouts.get(v);
+			if (char && char.get("name") === name) {
+        char.destroy();
+        result = true;
+      }
+			if (handout && handout.get("name") === name) {
+        handout.destroy();
+        result = true;
+      }
+
+		});
+		return result;
+	};
+
 	// Inject HTML
 	d20plus.addHTML = function() {
 		$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
@@ -363,10 +384,11 @@ var D20plus = function(version) {
 							d20plus.addImportError(v.name);
 						}
 					});
-						
+
 						$("#import-options label").hide();
+						$("#import-overwrite").parent().show();
 						$("#import-monster-organizebysource").parent().show();
-						
+
 						$("#d20plus-importlist").dialog("open");
 
 						$("#d20plus-importlist input#importlist-selectall").unbind("click");
@@ -414,6 +436,8 @@ var D20plus = function(version) {
 				d20plus.log("> ERROR: " + msg);
 			}
 		});
+
+		d20plus.timeout = 500;
 	};
 
 	// Create monster character from js data object
@@ -443,20 +467,21 @@ var D20plus = function(version) {
 		journalFolderObj = JSON.parse(journalFolder);
 		monsters = journalFolderObj.find(function(a){return a.n && a.n == "Monsters"});
 
-		var name = data.name || "(Unknown Name)",
-			dupe = false;
+		var name = data.name || "(Unknown Name)";
 
+    // check for duplicates
+		var dupe = false;
 		$.each(monsters.i, function(i,v) {
-			if(d20plus.objectExists(monsters.i, v.id, name))
-				dupe = true;
+				if (d20plus.objectExists (monsters.i, v.id, name)) dupe = true;
+        if ($("#import-overwrite").prop("checked")) d20plus.deleteObject(monsters.i, v.id, name);
 		});
+		if (dupe) {
+			console.log ("Already Exists");
+			if (!$("#import-overwrite").prop("checked")) return;
+		}
 
 		var timeout = 0;
 
-		if (dupe) {
-			console.log("Already Exists");
-			return;
-		} else {
 			d20plus.remaining++;
 			if(d20plus.timeout == 500){
 				$("#d20plus-import").dialog("open");
@@ -464,7 +489,6 @@ var D20plus = function(version) {
 			}
 			timeout = d20plus.timeout;
 			d20plus.timeout += 2500;
-		}
 
 		setTimeout(function() {
 			d20plus.log("Running import of [" + name + "]");
@@ -615,6 +639,21 @@ var D20plus = function(version) {
 									actiontext = "",
 									text = "";
 
+                var attacktype = "";
+
+                var actiontext = "";
+                if (v.text instanceof Array) {
+                  actiontext = v.text[0];
+                } else {
+                  actiontext = v.text;
+                }
+
+                if (actiontext.indexOf (" Weapon Attack:") > -1) {
+                  attacktype = actiontext.split (" Weapon Attack:")[0];
+                } else if (actiontext.indexOf (" Spell Attack:") > -1) {
+                  attacktype = actiontext.split (" Spell Attack:")[0];
+                }
+
 								var rollbase = "@{wtype}&{template:npcaction} @{attack_display_flag} @{damage_flag} {{name=@{npc_name}}} {{rname=@{name}}} {{r1=[[1d20+(@{attack_tohit}+0)]]}} @{rtype}+(@{attack_tohit}+0)]]}} {{dmg1=[[@{attack_damage}+0]]}} {{dmg1type=@{attack_damagetype}}} {{dmg2=[[@{attack_damage2}+0]]}} {{dmg2type=@{attack_damagetype2}}} {{crit1=[[@{attack_crit}+0]]}} {{crit2=[[@{attack_crit2}+0]]}} {{description=@{description}}} @{charname_output}";
 								if(v.attack != null) {
 									if(!(v.attack instanceof Array)) {
@@ -651,7 +690,7 @@ var D20plus = function(version) {
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_damage", current: damage });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_name_display", current: name });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_rollbase", current: rollbase });
-										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_type", current: "" });
+										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_type", current: attacktype });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_attack_tohitrange", current: "" });
 										character.attribs.create({ name: "repeating_npcaction_" + newRowId + "_damage_flag", current: "{{damage=1}} {{dmg1flag=1}}" });
 										if(damage !== "") {
@@ -1081,8 +1120,9 @@ var D20plus = function(version) {
 					});
 
 						$("#import-options label").hide();
+						$("#import-overwrite").parent().show();
 						$("#import-spell-showplayers").parent().show();
-						
+
 						$("#d20plus-importlist").dialog("open");
 
 						$("#d20plus-importlist input#importlist-selectall").unbind("click");
@@ -1130,6 +1170,8 @@ var D20plus = function(version) {
 				d20plus.log("> ERROR: " + msg);
 			}
 		});
+
+		d20plus.timeout = 500;
 	};
 
 	// parse spell levels
@@ -1184,16 +1226,16 @@ var D20plus = function(version) {
 		spells = journalFolderObj.find(function(a){return a.n && a.n == "Spells"});
 
 		var name = data.name || "(Unknown Name)";
-		var dupe = false;
 
 		// check for duplicates
+		var dupe = false;
 		$.each(spells.i, function(i,v) {
 				if (d20plus.objectExists (spells.i, v.id, name)) dupe = true;
+        if ($("#import-overwrite").prop("checked")) d20plus.deleteObject(spells.i, v.id, name);
 		});
-
 		if (dupe) {
 			console.log ("Already Exists");
-			return;
+			if (!$("#import-overwrite").prop("checked")) return;
 		}
 
 		d20plus.remaining++;
@@ -1272,11 +1314,11 @@ var D20plus = function(version) {
 					}
 
 					notecontents += `<p><strong>Classes:</strong> `+data.classes+`</p>`
-					
+
 					handout.updateBlobs( {
 						notes: notecontents
 					});
-					
+
 					var injournals = ($("#import-spell-showplayers").prop("checked")) ? ["all"].join(",") : "";
 					handout.save({
 						notes: (new Date).getTime(),
@@ -1345,8 +1387,9 @@ var D20plus = function(version) {
 	<p id="import-options">
 		<label><input type="checkbox" title="Import by source" id="import-monster-organizebysource"> Import by source instead of type?</label>
 		<label><input type="checkbox" title="Make spells visible to all players" id="import-spell-showplayers" checked> Make spells visible to all players?</label>
+		<label><input type="checkbox" title="Overwrite existing" id="import-overwrite"> Overwrite existing entries?</label>
 	</p>
-	
+
 	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">
 		<span>Load</span>
 	</button>
