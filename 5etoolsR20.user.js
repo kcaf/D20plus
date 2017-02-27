@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.1.1
+// @version      0.1.2
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -413,9 +413,9 @@ var D20plus = function(version) {
 
 	// Create monster character from js data object
 	d20plus.importMonster = function (data) {
-		var typeArr = data.type.split(","),
-			source = typeArr[typeArr.length-1],
-			fname = source.trim().capFirstLetter(),
+		var typeArr = data.type.split(",");
+		var	source = ($("#import-organizebysource").prop("checked")) ? typeArr[typeArr.length-1] : typeArr[0].toLowerCase().replace(/\((any race)\)/g,"");
+		var fname = source.trim().capFirstLetter(),
 			findex = 1,
 			folder;
 
@@ -511,7 +511,7 @@ var D20plus = function(version) {
 							senses = data.senses || "",
 							sensesStr = senses !== "" ? senses + ", " + passiveStr : passiveStr,
 							size = d20plus.getSizeString(data.size || ""),
-							type = data.type || "(Unknown Type)",
+							type = data.type.split(",")[0] || "(Unknown Type)",
 							alignment = data.alignment || "(Unknown Alignment)",
 							cr = data.cr != null ? data.cr : "",
 							xp = d20plus.getXPbyCR(cr);
@@ -1079,9 +1079,11 @@ var D20plus = function(version) {
 
 	d20plus.importListHTML = `<div id="d20plus-importlist" title="Import Monsters...">
 	<p><input type="checkbox" title="Select all" id="importlist-selectall"></p>
-	<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
-	<p></p>
-	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">>
+	<p>
+		<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
+	</p>
+	<p><label><input type="checkbox" title="Import by source" id="import-organizebysource"> Import by source instead of type?</label></p>
+	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">
 		<span>Load Monsters</span>
 	</button>
 	</div>`
