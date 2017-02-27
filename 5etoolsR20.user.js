@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.1
+// @version      0.1.1
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -12,7 +12,12 @@
 // @run-at       document-start
 // ==/UserScript==
 
+
+
 var D20plus = function(version) {
+
+	var monsterdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json";
+
 	var d20plus = {
 		sheet: "ogl",
 		version: version,
@@ -322,7 +327,8 @@ var D20plus = function(version) {
 
 	// Import monsters button click event
 	d20plus.buttonMonsterClicked = function() {
-		var url = window.prompt("Input the URL of the Monster XML file");
+		var url = $("#import-monster-url").val();
+		// window.prompt("Input the URL of the Monster XML file");
 		if (url != null) {
 			d20plus.loadMonstersData(url);
 		}
@@ -332,7 +338,7 @@ var D20plus = function(version) {
 	d20plus.loadMonstersData = function(url) {
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
-		var datatype = $("#d20plus-datatype").val();
+		var datatype = $("#d20plus-monster-datatype").val();
 		if (datatype === "json") datatype = "text";
 		$.ajax({
 			type: "GET",
@@ -340,7 +346,7 @@ var D20plus = function(version) {
 			dataType: datatype,
 			success: function (data) {
 				try {
-					d20plus.log("Importing Data (" + $("#d20plus-datatype").val().toUpperCase() + ")");
+					d20plus.log("Importing Data (" + $("#d20plus-monster-datatype").val().toUpperCase() + ")");
 					monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 					console.log(monsterdata.compendium.monster.length);
 					var length = monsterdata.compendium.monster.length;
@@ -1071,7 +1077,7 @@ var D20plus = function(version) {
 		}
 	];
 
-	d20plus.importListHTML = `<div id="d20plus-importlist" title="Choose which monsters to import">
+	d20plus.importListHTML = `<div id="d20plus-importlist" title="Import Monsters...">
 	<p><input type="checkbox" title="Select all" id="importlist-selectall"></p>
 	<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
 	<p></p>
@@ -1096,22 +1102,34 @@ var D20plus = function(version) {
 	d20plus.settingsHtml = `<hr>
 	<p>
 		<h3>5etoolsR20 v` + d20plus.version + `</h3>
+	</p>
+	<p>
+		<h4>Monster Importing</h4>
+		<label for="import-monster-url">Data URL:</label>
+		<input type="text" id="import-monster-url" value="`+monsterdataurl+`">
+
+		<label>Data Type:</label>
+			<select id="d20plus-monster-datatype" value="json">
+				<option value="json">JSON</option>
+				<option value="xml">XML</option>
+			</select>
+
+		<label>Character Sheet:</label>
+		<select class="d20plus-sheet">
+			<option value="ogl">5th Edition (OGL by Roll20)</option>
+			<option value="community">5th Edition (Community Contributed)</option>
+		<!-- <option value="shaped">5th Edition Shaped (Community Contributed)</option> -->
+		</select>
+
 		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
 	</p>
 	<p>
-		<label>Select your character sheet</label>
-		<select class="d20plus-sheet">
-			<option value="ogl">5th Edition ( OGL by Roll20 )</option>
-			<option value="community">5th Edition (Community Contributed)</option>
-			<option value="shaped">5th Edition Shaped (Community Contributed)</option>
-		</select>
+		<h4>Spell Importing</h4>
+		Coming soon!
 	</p>
 	<p>
-		<label>Select the data type</label>
-		<select id="d20plus-datatype" value="json">
-		<option value="json">JSON</option>
-			<option value="xml">XML</option>
-		</select>
+		<h4>Item Importing</h4>
+		Coming soon!
 	</p>`;
 
 	d20plus.cssRules = [
