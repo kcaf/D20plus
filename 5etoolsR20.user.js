@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.2.0
+// @version      0.2.1
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -1380,7 +1380,6 @@ var D20plus = function(version) {
 	</p>
 	<p>
 		<h4>Spell Importing</h4>
-		Coming soon!
 		<label for="import-spell-url">Spell Data URL:</label>
 		<input type="text" id="import-spell-url" value="`+spelldataurl+`">
 
