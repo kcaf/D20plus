@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.2.1
+// @version      0.2.2
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -363,7 +363,10 @@ var D20plus = function(version) {
 							d20plus.addImportError(v.name);
 						}
 					});
-
+						
+						$("#import-options label").hide();
+						$("#import-monster-organizebysource").parent().show();
+						
 						$("#d20plus-importlist").dialog("open");
 
 						$("#d20plus-importlist input#importlist-selectall").unbind("click");
@@ -416,7 +419,7 @@ var D20plus = function(version) {
 	// Create monster character from js data object
 	d20plus.importMonster = function (data) {
 		var typeArr = data.type.split(",");
-		var	source = ($("#import-organizebysource").prop("checked")) ? typeArr[typeArr.length-1] : typeArr[0].toLowerCase().replace(/\((any race)\)/g,"");
+		var	source = ($("#import-monster-organizebysource").prop("checked")) ? typeArr[typeArr.length-1] : typeArr[0].toLowerCase().replace(/\((any race)\)/g,"");
 		var fname = source.trim().capFirstLetter(),
 			findex = 1,
 			folder;
@@ -1077,7 +1080,9 @@ var D20plus = function(version) {
 						}
 					});
 
-						$("#import-organizebysource").parent().hide();
+						$("#import-options label").hide();
+						$("#import-spell-showplayers").parent().show();
+						
 						$("#d20plus-importlist").dialog("open");
 
 						$("#d20plus-importlist input#importlist-selectall").unbind("click");
@@ -1088,7 +1093,6 @@ var D20plus = function(version) {
 						$("#d20plus-importlist button").unbind("click");
 						$("#d20plus-importlist button#importstart").bind("click", function() {
 							$("#d20plus-importlist").dialog("close");
-							$("#import-organizebysource").parent().show();
 							$("#import-list input").each(function() {
 								if (!$(this).prop("checked")) return;
 								var spellnum = parseInt($(this).data("listid"));
@@ -1268,12 +1272,15 @@ var D20plus = function(version) {
 					}
 
 					notecontents += `<p><strong>Classes:</strong> `+data.classes+`</p>`
-
+					
 					handout.updateBlobs( {
 						notes: notecontents
 					});
+					
+					var injournals = ($("#import-spell-showplayers").prop("checked")) ? ["all"].join(",") : "";
 					handout.save({
-						notes: (new Date).getTime()
+						notes: (new Date).getTime(),
+						inplayerjournals: injournals
 					});
 
 					d20.journal.addItemToFolderStructure(handout.id, folder.id);
@@ -1335,7 +1342,11 @@ var D20plus = function(version) {
 	<p>
 		<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
 	</p>
-	<p><label><input type="checkbox" title="Import by source" id="import-organizebysource"> Import by source instead of type?</label></p>
+	<p id="import-options">
+		<label><input type="checkbox" title="Import by source" id="import-monster-organizebysource"> Import by source instead of type?</label>
+		<label><input type="checkbox" title="Make spells visible to all players" id="import-spell-showplayers" checked> Make spells visible to all players?</label>
+	</p>
+	
 	<button type="button" id="importstart" alt="Load" title="Load Monsters" class="btn" role="button" aria-disabled="false">
 		<span>Load</span>
 	</button>
