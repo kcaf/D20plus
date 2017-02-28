@@ -7,8 +7,5 @@
 2. [Click here](https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js) to bring up the installer  
 3. Open up Roll20 and you're done! 
 
-You can use 5etools' bestiary data by supplying the following link to the script: https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json
-
-
 ## License
 5etoolsR20 is licensed under the [MIT license](https://opensource.org/licenses/MIT).
