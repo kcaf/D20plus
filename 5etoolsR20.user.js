@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.3.1
+// @version      0.3.2
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -753,8 +753,8 @@ d20plus.importMonster = function (data) {
 						character.attribs.create({ name: "reaction_flag", current: 1 });
 						character.attribs.create({ name: "npcreactionsflag", current: 1 });
 						$.each(data.reaction, function(i,v) {
-							var newRowId = d20plus.generateRowId(),
-							text = "";
+							var newRowId = d20plus.generateRowId();
+							var text = "";
 							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_name", current: v.name });
 							if(v.text instanceof Array) {
 								$.each(v.text, function(z,x) {
@@ -764,6 +764,7 @@ d20plus.importMonster = function (data) {
 								text = v.text;
 							}
 							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_desc", current: text });
+							character.attribs.create({ name: "repeating_npcreaction_" + newRowId + "_description", current: text });
 						});
 					}
 
@@ -1145,13 +1146,15 @@ d20plus.loadSpellsData = function (url) {
 				$("#d20plus-importlist button").unbind("click");
 				$("#d20plus-importlist button#importstart").bind("click", function() {
 					$("#d20plus-importlist").dialog("close");
+					var overwritespells = $("#import-overwrite").prop("checked");
+
 					$("#import-list input").each(function() {
 						if (!$(this).prop("checked")) return;
 						var spellnum = parseInt($(this).data("listid"));
 						var curspell = spelldata.compendium.spell[spellnum];
 						try {
 							console.log("> " + (spellnum+1) + "/" + length + " Attempting to import spell [" + curspell.name + "]");
-							d20plus.importSpell(curspell);
+							d20plus.importSpell(curspell, overwritespells);
 						} catch (e) {
 							console.log("Error Importing!", e);
 							d20plus.addImportError(curspell.name);
@@ -1210,7 +1213,7 @@ function parseSpellSchool (school) {
 }
 
 // Import individual spells
-d20plus.importSpell = function (data) {
+d20plus.importSpell = function (data, overwritespells) {
 
 	var source = parseSpellLevel(data.level);
 	if (source !== "cantrip") source += " level";
@@ -1247,7 +1250,7 @@ d20plus.importSpell = function (data) {
 	});
 	if (dupe) {
 		console.log ("Already Exists");
-		if (!$("#import-overwrite").prop("checked")) return;
+		if (!overwritespells) return;
 	}
 
 	d20plus.remaining++;
