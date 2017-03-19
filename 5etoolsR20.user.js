@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.3.2
+// @version      0.4.0
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -18,13 +18,18 @@ var D20plus = function(version) {
 
 	var monsterdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json";
 	var spelldataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/spells.json";
+	var itemdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/items.json";
 
 	var d20plus = {
 		sheet: "ogl",
 		version: version,
 		timeout: 500,
 		remaining: 0,
-		scriptsLoaded: false
+		scriptsLoaded: false,
+		monsters: {},
+		spells: {},
+		items: {},
+		initiative: {}
 	};
 
 	// Window loaded
@@ -42,6 +47,7 @@ var D20plus = function(version) {
 	// Page fully loaded and visible
 	d20plus.Init = function() {
 		d20plus.log("> Init (v" + d20plus.version + ")");
+		d20plus.bindDropLocations();
 
 		// Firebase will deny changes if we're not GM. Better to fail gracefully.
 		if (window.is_gm) {
@@ -271,9 +277,12 @@ d20plus.deleteObject = function(folderObj, folderId, name) {
 // Inject HTML
 d20plus.addHTML = function() {
 	$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
+
 	$("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
-	$("#mysettings > .content a#import-monster-button").on(window.mousedowntype, d20plus.buttonMonsterClicked);
-	$("#mysettings > .content a#import-spell-button").on(window.mousedowntype, d20plus.buttonSpellClicked);
+	$("#mysettings > .content a#button-monsters-load").on(window.mousedowntype, d20plus.monsters.button);
+	$("#mysettings > .content a#button-spells-load").on(window.mousedowntype, d20plus.spells.button);
+	$("#mysettings > .content a#import-items-load").on(window.mousedowntype, d20plus.items.button);
+	$("#mysettings > .content a#bind-drop-locations").on(window.mousedowntype, d20plus.bindDropLocations);
 
 	$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
 	$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
@@ -286,6 +295,9 @@ d20plus.addHTML = function() {
 	d20plus.updateDifficulty();
 
 	d20plus.addJournalCommands();
+
+	$("#journal > .content:eq(1) > button.btn.superadd").after(` <button class="btn bind-drop-locations" href="#" title="Bind drop locations and handouts" style="margin-right: 0.5em;">Bind</button> `)
+	$("#journal > .content:eq(1) btn#bind-drop-locations").on(window.mousedowntype, d20plus.bindDropLocations);
 
 	$("body").append(d20plus.importDialogHtml);
 	$("body").append(d20plus.importListHTML);
@@ -348,20 +360,101 @@ d20plus.addScripts = function() {
 	});
 };
 
+// bind drop locations on sheet to accept custom handouts
+d20plus.bindDropLocations = function() {
+
+	// first off: bind Spells and Items, add compendium-item to each of them
+	var journalFolder = d20.Campaign.get("journalfolder");
+	if(journalFolder === ""){
+		d20.journal.addFolderToFolderStructure("Spells");
+		d20.journal.addFolderToFolderStructure("Items");
+		d20.journal.refreshJournalList();
+		journalFolder = d20.Campaign.get("journalfolder");
+	}
+	var journalFolderObj = JSON.parse(journalFolder);
+
+	var handouts = journalFolderObj.find(function(a){return a.n && (a.n == "Spells" || a.n == "Items")});
+
+	$("#journalfolderroot > ol.dd-list > li.dd-folder > div.dd-content:contains('Spells')").parent().find("ol li[data-itemid]").addClass("compendium-item").addClass("ui-draggable");
+	$("#journalfolderroot > ol.dd-list > li.dd-folder > div.dd-content:contains('Items')").parent().find("ol li[data-itemid]").addClass("compendium-item").addClass("ui-draggable");
+
+
+	d20.Campaign.characters.models.each(function(v,i) {
+		v.view.rebindCompendiumDropTargets = function() {
+			// ready character sheet for draggable
+			$(".sheet-compendium-drop-target").each(function() {
+				$(this).droppable({
+					hoverClass: "dropping",
+					tolerance: "pointer",
+					activeClass: "active-drop-target",
+					accept: ".compendium-item",
+					drop: function(t, i) {
+						var characterid = $(".characterdialog").has(t.target).attr("data-characterid");
+						var character = d20.Campaign.characters.get(characterid).view;
+						if ($(i.helper[0]).hasClass("handout")) {
+							console.log("Handout item dropped onto target!");
+							t.originalEvent.dropHandled = !0;
+							var id = $(i.helper[0]).attr("data-itemid");
+							var handout = d20.Campaign.handouts.get(id);
+							console.log(character);
+							var data = "";
+
+							handout._getLatestBlob("gmnotes", function(gmnotes) {
+								data = gmnotes;
+								handout.updateBlobs({ gmnotes: gmnotes });
+								data = JSON.parse(data);
+								n = data.data;
+								n.Name = data.name, n.Content = data.content;
+								var r = $(t.target);
+								r.find("*[accept]").each(function() {
+									var t = $(this),
+									i = t.attr("accept");
+									// this is arcane bullshit
+									n[i] && ("input" === t[0].tagName.toLowerCase() && "checkbox" === t.attr("type") ? t.attr("value") == n[i] ? t.attr("checked", "checked") : t.removeAttr("checked") : "input" === t[0].tagName.toLowerCase() && "radio" === t.attr("type") ? t.attr("value") == n[i] ? t.attr("checked", "checked") : t.removeAttr("checked") : "select" === t[0].tagName.toLowerCase() ? t.find("option").each(function() {
+										var e = $(this);
+										(e.attr("value") === n[i] || e.text() === n[i]) && e.attr("selected", "selected")
+									}) : $(this).val(n[i]), character.saveSheetValues(this))
+								});
+
+							});
+						} else {
+							console.log("Compendium item dropped onto target!"), t.originalEvent.dropHandled = !0;
+							var n = $(i.helper[0]).attr("data-pagename");
+							console.log("https://app.roll20.net/compendium/" + COMPENDIUM_BOOK_NAME + "/" + n + ".json?plaintext=true"), $.get("https://app.roll20.net/compendium/" + COMPENDIUM_BOOK_NAME + "/" + n + ".json?plaintext=true", function(i) {
+								var n = i.data;
+								n.Name = i.name, n.Content = i.content;
+								var r = $(t.target);
+								r.find("*[accept]").each(function() {
+									var t = $(this),
+									i = t.attr("accept");
+									n[i] && ("input" === t[0].tagName.toLowerCase() && "checkbox" === t.attr("type") ? t.attr("value") == n[i] ? t.attr("checked", "checked") : t.removeAttr("checked") : "input" === t[0].tagName.toLowerCase() && "radio" === t.attr("type") ? t.attr("value") == n[i] ? t.attr("checked", "checked") : t.removeAttr("checked") : "select" === t[0].tagName.toLowerCase() ? t.find("option").each(function() {
+										var e = $(this);
+										(e.attr("value") === n[i] || e.text() === n[i]) && e.attr("selected", "selected")
+									}) : $(this).val(n[i]), character.saveSheetValues(this))
+								})
+							})
+						}
+					}
+				})
+			})
+		}
+	})
+};
+
 // Import monsters button click event
-d20plus.buttonMonsterClicked = function() {
+// d20plus.buttonMonsterClicked = function() {
+d20plus.monsters.button = function() {
 	var url = $("#import-monster-url").val();
-	// window.prompt("Input the URL of the Monster XML file");
 	if (url != null) {
-		d20plus.loadMonstersData(url);
+		d20plus.monsters.load(url);
 	}
 };
 
 // Fetch monster data from XML url and import it
-d20plus.loadMonstersData = function(url) {
+d20plus.monsters.load = function(url) {
 	$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 	var x2js = new X2JS();
-	var datatype = $("#import-monster-datatype").val();
+	var datatype = $("#import-datatype").val();
 	if (datatype === "json") datatype = "text";
 	$.ajax({
 		type: "GET",
@@ -369,7 +462,7 @@ d20plus.loadMonstersData = function(url) {
 		dataType: datatype,
 		success: function (data) {
 			try {
-				d20plus.log("Importing Data (" + $("#import-monster-datatype").val().toUpperCase() + ")");
+				d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
 				monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 				console.log(monsterdata.compendium.monster.length);
 				var length = monsterdata.compendium.monster.length;
@@ -405,7 +498,7 @@ d20plus.loadMonstersData = function(url) {
 						var curmonster = monsterdata.compendium.monster[monsternum];
 						try {
 							console.log("> " + (monsternum+1) + "/" + length + " Attempting to import monster [" + curmonster.name + "]");
-							d20plus.importMonster(curmonster);
+							d20plus.monsters.import(curmonster);
 						} catch (e) {
 							console.log("Error Importing!", e);
 							d20plus.addImportError(curmonster.name);
@@ -441,7 +534,7 @@ d20plus.loadMonstersData = function(url) {
 };
 
 // Create monster character from js data object
-d20plus.importMonster = function (data) {
+d20plus.monsters.import = function (data) {
 	var typeArr = data.type.split(",");
 	var	source = ($("#import-monster-organizebysource").prop("checked")) ? typeArr[typeArr.length-1] : typeArr[0].toLowerCase().replace(/\((any race)\)/g,"");
 	var fname = source.trim().capFirstLetter(),
@@ -686,9 +779,9 @@ d20plus.importMonster = function (data) {
 								var tohit = (actiontext.match(/\+(.*) to hit/) || ["",""])[1];
 
 								var damage = "",
-									damagetype = "",
-									damage2 = "",
-									damagetype2 = "";
+								damagetype = "",
+								damage2 = "",
+								damagetype2 = "";
 
 								var onhit = "";
 
@@ -1095,19 +1188,20 @@ d20plus.getInitTemplate = function() {
 };
 
 // Import spell button was clicked
-d20plus.buttonSpellClicked = function() {
+// d20plus.buttonSpellClicked = function() {
+d20plus.spells.button = function() {
 	var url = $("#import-spell-url").val();
 	// window.prompt("Input the URL of the Monster XML file");
 	if (url != null) {
-		d20plus.loadSpellsData(url);
+		d20plus.spells.load(url);
 	}
 };
 
 // Fetch spell data from file
-d20plus.loadSpellsData = function (url) {
+d20plus.spells.load = function (url) {
 	$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 	var x2js = new X2JS();
-	var datatype = $("#import-spell-datatype").val();
+	var datatype = $("#import-datatype").val();
 	if (datatype === "json") datatype = "text";
 
 	$.ajax({
@@ -1116,7 +1210,7 @@ d20plus.loadSpellsData = function (url) {
 		dataType: datatype,
 		success: function (data) {
 			try {
-				d20plus.log("Importing Data (" + $("#import-spell-datatype").val().toUpperCase() + ")");
+				d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
 				spelldata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
 				console.log(spelldata.compendium.spell.length);
 				var length = spelldata.compendium.spell.length;
@@ -1134,7 +1228,7 @@ d20plus.loadSpellsData = function (url) {
 
 				$("#import-options label").hide();
 				$("#import-overwrite").parent().show();
-				$("#import-spell-showplayers").parent().show();
+				$("#import-showplayers").parent().show();
 
 				$("#d20plus-importlist").dialog("open");
 
@@ -1154,7 +1248,7 @@ d20plus.loadSpellsData = function (url) {
 						var curspell = spelldata.compendium.spell[spellnum];
 						try {
 							console.log("> " + (spellnum+1) + "/" + length + " Attempting to import spell [" + curspell.name + "]");
-							d20plus.importSpell(curspell, overwritespells);
+							d20plus.spells.import(curspell, overwritespells);
 						} catch (e) {
 							console.log("Error Importing!", e);
 							d20plus.addImportError(curspell.name);
@@ -1189,35 +1283,14 @@ d20plus.loadSpellsData = function (url) {
 	d20plus.timeout = 500;
 };
 
-// parse spell levels
-function parseSpellLevel (level) {
-	if (isNaN (level)) return false;
-	if (level === "0") return "cantrip"
-	if (level === "2") return level+"nd";
-	if (level === "3") return level+"rd";
-	if (level === "1") return level+"st";
-	return level+"th";
-}
-
-// parse spell school
-function parseSpellSchool (school) {
-	if (school == "A") return "abjuration";
-	if (school == "EV") return "evocation";
-	if (school == "EN") return "enchantment";
-	if (school == "I") return "illusion";
-	if (school == "D") return "divination";
-	if (school == "N") return "necromancy";
-	if (school == "T") return "transmutation";
-	if (school == "C") return "conjuration";
-	return false;
-}
-
 // Import individual spells
-d20plus.importSpell = function (data, overwritespells) {
+d20plus.spells.import = function (data, overwritespells) {
 
 	var source = parseSpellLevel(data.level);
 	if (source !== "cantrip") source += " level";
 	var fname = source.trim().capFirstLetter();
+	if (fname === "Pd Level") fname = "Psionic Disciplines";
+	if (fname === "Pt Level") fname = "Psionic Talents";
 	var findex = 1;
 	var folder;
 
@@ -1246,7 +1319,7 @@ d20plus.importSpell = function (data, overwritespells) {
 	var dupe = false;
 	$.each(spells.i, function(i,v) {
 		if (d20plus.objectExists (spells.i, v.id, name)) dupe = true;
-		if ($("#import-overwrite").prop("checked")) d20plus.deleteObject(spells.i, v.id, name);
+		if (overwritespells) d20plus.deleteObject(spells.i, v.id, name);
 	});
 	if (dupe) {
 		console.log ("Already Exists");
@@ -1303,7 +1376,46 @@ d20plus.importSpell = function (data, overwritespells) {
 			name: name
 		}, {
 			success: function (handout) {
+
+				if (!data.school) data.school = "A";
+				if (!data.range) data.range = "Self";
+				if (!data.duration) data.duration = "Instantaneous"
+				if (!data.components) data.components = "";
+				if (!data.time) data.components = "1 action";
+
+				var r20json = {
+					name: data.name,
+					content: "",
+					htmlcontent: "",
+					data: {
+						"Level": data.level,
+						"Range": data.range,
+						"Ritual": "No",
+						"School": parseSpellSchool(data.school),
+						"Source": "5etoolsR20",
+						"Classes": data.classes,
+						"Category": "Spells",
+						"Duration": data.duration,
+						"Material": "",
+						"Components": data.components.split("(")[0].replace(",",""),
+						"Casting Time": data.time
+					}
+				};
+
+				if (data.components.indexOf("M") > 0) {
+					r20json.data["Material"] = data.components.split("(")[1].replace(")","");
+				}
+
+				if (data.level === "PD") {
+					r20json.data["Level"] = "1";
+				}
+
+				if (data.level === "PT") {
+					r20json.data["Level"] = "0";
+				}
+
 				var notecontents = "";
+				var gmnotes="";
 
 				notecontents += `<p><h3>`+data.name+`</h3>`;
 
@@ -1320,21 +1432,25 @@ d20plus.importSpell = function (data, overwritespells) {
 				notecontents += `</p>`
 
 				var spelltext = data.text;
-
 				if (spelltext[0].length === 1) {
 					notecontents += `<p>`+spelltext+`</p>`;
+					r20json.content = spelltext;
 				} else for (var n = 0; n < spelltext.length; n++) {
 					if (!spelltext[n]) continue;
+					r20json.content += spelltext[n] + '\n\n';
+					r20json.htmlcontent += spelltext[n] + '<br><br>';
 					notecontents += `<p>`+spelltext[n].replace("At Higher Levels: ", "<strong>At Higher Levels:</strong> ").replace("This spell can be found in the Elemental Evil Player's Companion","")+`</p>`;
 				}
 
 				notecontents += `<p><strong>Classes:</strong> `+data.classes+`</p>`
+				gmnotes = JSON.stringify(r20json);
 
 				handout.updateBlobs( {
-					notes: notecontents
+					notes: notecontents,
+					gmnotes: gmnotes
 				});
 
-				var injournals = ($("#import-spell-showplayers").prop("checked")) ? ["all"].join(",") : "";
+				var injournals = ($("#import-showplayers").prop("checked")) ? ["all"].join(",") : "";
 				handout.save({
 					notes: (new Date).getTime(),
 					inplayerjournals: injournals
@@ -1353,6 +1469,367 @@ d20plus.importSpell = function (data, overwritespells) {
 	}, timeout);
 
 };
+
+// parse spell levels
+function parseSpellLevel (level) {
+	if (isNaN (level)) return level;
+	if (level === "0") return "cantrip"
+	if (level === "2") return level+"nd";
+	if (level === "3") return level+"rd";
+	if (level === "1") return level+"st";
+	return level+"th";
+}
+
+// parse spell school
+function parseSpellSchool (school) {
+	if (school == "A") return "abjuration";
+	if (school == "EV") return "evocation";
+	if (school == "EN") return "enchantment";
+	if (school == "I") return "illusion";
+	if (school == "D") return "divination";
+	if (school == "N") return "necromancy";
+	if (school == "T") return "transmutation";
+	if (school == "C") return "conjuration";
+	return school;
+}
+
+// Import spell button was clicked
+// d20plus.buttonSpellClicked = function() {
+d20plus.items.button = function() {
+	var url = $("#import-items-url").val();
+	if (url != null) {
+		d20plus.items.load(url);
+	}
+};
+
+// Fetch items data from file
+d20plus.items.load = function (url) {
+	$("a.ui-tabs-anchor[href='#journal']").trigger("click");
+	var x2js = new X2JS();
+	var datatype = $("#import-datatype").val();
+	if (datatype === "json") datatype = "text";
+
+	$.ajax({
+		type: "GET",
+		url: url,
+		dataType: datatype,
+		success: function (data) {
+			try {
+				d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
+				itemdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
+				console.log(itemdata.compendium.item.length);
+				var length = itemdata.compendium.item.length;
+
+				// building list for checkboxes
+				$("#import-list").html("");
+				$.each(itemdata.compendium.item, function(i,v) {
+					try {
+						$("#import-list").append(`<label><input type="checkbox" data-listid="`+i+`"> <span>`+v.name+`</span></label>`);
+					} catch (e) {
+						console.log("Error building list!", e);
+						d20plus.addImportError(v.name);
+					}
+				});
+
+				$("#import-options label").hide();
+				$("#import-overwrite").parent().show();
+				$("#import-showplayers").parent().show();
+
+				$("#d20plus-importlist").dialog("open");
+
+				$("#d20plus-importlist input#importlist-selectall").unbind("click");
+				$("#d20plus-importlist input#importlist-selectall").bind("click", function() {
+					$("#import-list input").prop("checked", $(this).prop("checked"));
+				});
+
+				$("#d20plus-importlist button").unbind("click");
+				$("#d20plus-importlist button#importstart").bind("click", function() {
+					$("#d20plus-importlist").dialog("close");
+					var overwriteitems = $("#import-overwrite").prop("checked");
+
+					$("#import-list input").each(function() {
+						if (!$(this).prop("checked")) return;
+						var itemnum = parseInt($(this).data("listid"));
+						var curitem = itemdata.compendium.item[itemnum];
+						try {
+							console.log("> " + (itemnum+1) + "/" + length + " Attempting to import item [" + curitem.name + "]");
+							d20plus.items.import(curitem, overwriteitems);
+						} catch (e) {
+							console.log("Error Importing!", e);
+							d20plus.addImportError(curitem.name);
+						}
+					});
+				});
+			} catch(e) {
+				console.log("> Exception ", e);
+			}
+		},
+		error: function (jqXHR, exception) {
+			var msg = "";
+			if (jqXHR.status === 0) {
+				msg = "Could not connect.\n Check Network";
+			} else if (jqXHR.status == 404) {
+				msg = "Page not found [404]";
+			} else if (jqXHR.status == 500) {
+				msg = "Internal Server Error [500]";
+			} else if (exception === 'parsererror') {
+				msg = "Data parse failed";
+			} else if (exception === 'timeout') {
+				msg = "Timeout";
+			} else if (exception === 'abort') {
+				msg = "Request aborted";
+			} else {
+				msg = "Uncaught Error.\n" + jqXHR.responseText;
+			}
+			d20plus.log("> ERROR: " + msg);
+		}
+	});
+
+	d20plus.timeout = 500;
+};
+
+// Import individual items
+d20plus.items.import = function (data, overwriteitems) {
+	var fname = d20plus.items.parseType(data.type.split(",")[0]);
+	var findex = 1;
+	var folder;
+
+	d20.journal.refreshJournalList();
+	var journalFolder = d20.Campaign.get("journalfolder");
+	if(journalFolder === ""){
+		d20.journal.addFolderToFolderStructure("Characters");
+		d20.journal.refreshJournalList();
+		journalFolder = d20.Campaign.get("journalfolder");
+	}
+	var journalFolderObj = JSON.parse(journalFolder),
+	items = journalFolderObj.find(function(a){return a.n && a.n == "Items"});
+
+	if (!items) {
+		d20.journal.addFolderToFolderStructure("Items");
+	}
+
+	d20.journal.refreshJournalList();
+	journalFolder = d20.Campaign.get("journalfolder");
+	journalFolderObj = JSON.parse(journalFolder);
+	items = journalFolderObj.find(function(a){return a.n && a.n == "Items"});
+
+	var name = data.name || "(Unknown Name)";
+
+	// check for duplicates
+	var dupe = false;
+	$.each(items.i, function(i,v) {
+		if (d20plus.objectExists (items.i, v.id, name)) dupe = true;
+		if ($("#import-overwrite").prop("checked")) d20plus.deleteObject(items.i, v.id, name);
+	});
+	if (dupe) {
+		console.log ("Already Exists");
+		if (!overwriteitems) return;
+	}
+
+	d20plus.remaining++;
+	if (d20plus.timeout == 500) {
+		$("#d20plus-import").dialog("open");
+		$("#import-reminaing").text("d20plus.remaining");
+	}
+	timeout = d20plus.timeout;
+	d20plus.timeout += 2500;
+
+	setTimeout (function() {
+		d20plus.log("Running import of [" + name + "]");
+		$("#import-remaining").text(d20plus.remaining);
+		$("#import-name").text(name);
+
+		d20.journal.refreshJournalList();
+		journalFolder = d20.Campaign.get("journalfolder");
+		journalFolderObj = JSON.parse(journalFolder);
+		items = journalFolderObj.find(function(a){return a.n && a.n == "Items"});
+
+		// make source folder
+		for(i=-1; i<items.i.length; i++) {
+			var theFolderName = (findex == 1) ? fname : fname + " " + findex;
+			folder = items.i.find(function(f){return f.n == theFolderName;});
+			if(folder) {
+				if(folder.i.length >= 90) {
+					findex++;
+				} else {
+					break;
+				}
+			} else {
+				d20.journal.addFolderToFolderStructure(theFolderName, items.id);
+				d20.journal.refreshJournalList();
+				journalFolder = d20.Campaign.get("journalfolder");
+				journalFolderObj = JSON.parse(journalFolder);
+				items = journalFolderObj.find(function(a){return a.n && a.n == "Items"});
+				folder = items.i.find(function(f){return f.n == theFolderName;});
+				break;
+			}
+		}
+
+		if (!folder) {
+			console.log("> Failed to find or create source folder!");
+			return;
+		}
+
+		// build item handout
+		d20.Campaign.handouts.create({
+			name: name
+		}, {
+			success: function (handout) {
+				var notecontents = "";
+
+				var ismagicitem = false;
+				if (data.rarity || data.type.indexOf("W") !== -1 || data.name.search(/((Devastation Orb)|(Storm Boomerang)|(\s?Spiked Armor\s?)(Bottled Breath))/g) > 0) ismagicitem = true;
+				// if (data.text.search(/(Requires Attunement)/g) > 0) ismagicitem = true;
+
+				var type = data.type.split(",");
+				var source = data.text[data.text.length-1].split(",")[0].split(":")[1];
+
+				var rarity = data.rarity;
+				if (!rarity) {
+					rarity = "None";
+				} else rarity = data.rarity.replace("Rarity: ", "");
+
+
+				var damage = "";
+				var armorclass = "";
+
+				var typestring = ""
+				for (var n = 0; n < type.length; n++) {
+					var curtype = type[n];
+					if (n > 0) typestring += `, `;
+					typestring += d20plus.items.parseType (type[n]);
+					if (curtype === "M" || curtype === "R" || curtype === "GUN") {
+						damage = data.dmg1 + " " + data.dmgType;
+					}
+
+					if (curtype === "S") armorclass = "+" + data.ac;
+					if (curtype === "LA") armorclass = data.ac + " + Dex";
+					if (curtype === "MA") armorclass = data.ac + " + Dex (max 2)";
+					if (curtype === "HA") armorclass = data.ac;
+				}
+				for (var j = 0; j < type.length; j++) {
+					type[j] = d20plus.items.parseType (type[j]);
+				}
+
+
+				var properties = "";
+				if (data.property) {
+					var propertieslist = data.property.split(",");
+					for (var i = 0; i < propertieslist.length; i++) {
+						var a = d20plus.items.parseProperty (propertieslist[i]);
+						var b = propertieslist[i];
+						if (b === "V") a = a + " (" + data.dmg2 + ")";
+						if (b === "T" || b === "A") a = a + " (" + data.range + "ft.)";
+						if (b === "RLD") a = a + " (" + data.reload + " shots)";
+						if (i > 0) a = ", " + a;
+						properties += a;
+					}
+				}
+
+				var textstring = "";
+				var attunementstring = ""
+				var itemtext = data.text;
+				if (itemtext[0].length === 1) {
+					notecontents += `<p>`+itemtext+`</p>`;
+				} else for (var n = 0; n < itemtext.length; n++) {
+					if (!itemtext[n]) continue;
+					if (itemtext[n].trim().toLowerCase() === "requires attunement") attunementstring = " (Requires Attunement)";
+					if (itemtext[n].toLowerCase().match(/^((rarity\:)|(requires attunement)|(source: ))/g)) continue;
+					textstring += `<p>`+itemtext[n]+`</p>`;
+				}
+
+				notecontents += `<p><h3>`+data.name+`</h3></p><em>`;
+				notecontents += typestring;
+				if (ismagicitem) notecontents += ", " + rarity;
+				if (attunementstring) notecontents += attunementstring;
+				notecontents += `</em>`;
+				if (damage) notecontents += `<p><strong>Damage: </strong>`+damage+`</p>`;
+				if (properties) notecontents += `<p><strong>Properties: </strong>`+properties+`</p>`;
+				if (armorclass) notecontents += `<p><strong>Armor Class: </strong>`+armorclass+`</p>`;
+				if (data.weight) notecontents += `<p><strong>Weight: </strong>`+data.weight+` lbs.</p>`;
+				if (textstring) {
+					notecontents += `<hr>`;
+					notecontents += textstring;
+				}
+
+				handout.updateBlobs( {
+					notes: notecontents
+				});
+
+				var injournals = ($("#import-showplayers").prop("checked")) ? ["all"].join(",") : "";
+				handout.save({
+					notes: (new Date).getTime(),
+					inplayerjournals: injournals
+				});
+
+				d20.journal.addItemToFolderStructure(handout.id, folder.id);
+			}
+		});
+		d20plus.remaining--;
+		if(d20plus.remaining == 0){
+			setTimeout(function(){
+				$("#import-name").text("DONE!");
+				$("#import-remaining").text("0");
+			}, 1000);
+		}
+	}, timeout);
+
+};
+
+
+d20plus.items.parseType = function (type) {
+	if (type === "$") return "Treasure"
+	if (type === "G") return "Adventuring Gear"
+	if (type === "SCF") return "Spellcasting Focus"
+	if (type === "AT") return "Artisan Tool"
+	if (type === "T") return "Tool"
+	if (type === "GS") return "Gaming Set"
+	if (type === "INS") return "Instrument"
+	if (type === "A") return "Ammunition"
+	if (type === "M") return "Melee Weapon"
+	if (type === "R") return "Ranged Weapon"
+	if (type === "LA") return "Light Armor"
+	if (type === "MA") return "Medium Armor"
+	if (type === "HA") return "Heavy Armor"
+	if (type === "S") return "Shield"
+	if (type === "W") return "Wondrous Item"
+	if (type === "P") return "Potion"
+	if (type === "ST") return "Staff"
+	if (type === "RD") return "Rod"
+	if (type === "RG") return "Ring"
+	if (type === "WD") return "Wand"
+	if (type === "SC") return "Scroll"
+	if (type === "EXP") return "Explosive"
+	if (type === "GUN") return "Firearm"
+	if (type === "SIMW") return "Simple Weapon"
+	if (type === "MARW") return "Martial Weapon"
+	return "n/a"
+}
+
+d20plus.items.parseDamageType = function (damagetype) {
+	if (damagetype === "B") return "bludgeoning"
+	if (damagetype === "P") return "piercing"
+	if (damagetype === "S") return "slashing"
+	if (damagetype === "N") return "necrotic"
+	if (damagetype === "R") return "radiant"
+	return false;
+}
+
+d20plus.items.parseProperty = function (property) {
+	if (property === "A") return "ammunition"
+	if (property === "LD") return "loading"
+	if (property === "L") return "light"
+	if (property === "F") return "finesse"
+	if (property === "T") return "thrown"
+	if (property === "H") return "heavy"
+	if (property === "R") return "reach"
+	if (property === "2H") return "two-handed"
+	if (property === "V") return "versatile"
+	if (property === "S") return "special"
+	if (property === "RLD") return "reload"
+	if (property === "BF") return "burst fire"
+	return "n/a"
+}
 
 String.prototype.capFirstLetter = function(){
 	return this.replace(/\w\S*/g, function(w){return w.charAt(0).toUpperCase() + w.substr(1).toLowerCase();});
@@ -1373,17 +1850,24 @@ d20plus.difficultyHtml = `<span class="difficulty"></span>`;
 d20plus.multipliers = [1, 1.5, 2, 2.5, 3, 4, 5];
 
 d20plus.formulas = {
-	ogl: {
+	"ogl": {
 		"CR": "@{npc_challenge}",
 		"AC": "@{ac}",
 		"HP": "@{hp}",
 		"PP": "@{passive_wisdom}"
 	},
-	community: {
+	"community": {
 		"CR": "@{npc_challenge}",
 		"AC": "@{AC}",
 		"HP": "@{HP}",
 		"PP": "10 + @{perception}"
+	},
+	"shaped": {
+		"CR": "@{challenge}",
+		"AC": "@{AC}",
+		"HP": "@{HP}",
+		"PP": "@{repeating_skill_$11_passive}",
+		"macro": "%{shaped_statblock}"
 	}
 };
 
@@ -1401,7 +1885,7 @@ d20plus.importListHTML = `<div id="d20plus-importlist" title="Import...">
 </p>
 <p id="import-options">
 <label><input type="checkbox" title="Import by source" id="import-monster-organizebysource"> Import by source instead of type?</label>
-<label><input type="checkbox" title="Make spells visible to all players" id="import-spell-showplayers" checked> Make spells visible to all players?</label>
+<label><input type="checkbox" title="Make items visible to all players" id="import-showplayers" checked> Make handouts visible to all players?</label>
 <label><input type="checkbox" title="Overwrite existing" id="import-overwrite"> Overwrite existing entries?</label>
 </p>
 
@@ -1428,46 +1912,46 @@ d20plus.settingsHtml = `<hr>
 <h3>5etoolsR20 v` + d20plus.version + `</h3>
 </p>
 <p>
-<h4>Monster Importing</h4>
-<label for="import-monster-url">Monster Data URL:</label>
-<input type="text" id="import-monster-url" value="`+monsterdataurl+`">
-
 <label>Data Type:</label>
-<select id="import-monster-datatype" value="json">
+<select id="import-datatype" value="json">
 <option value="json">JSON</option>
 <option value="xml">XML</option>
 </select>
-
+</p>
+<p>
+<h4>Tracker Improvements</h4>
 <label>Character Sheet:</label>
-<select class="d20plus-sheet">
+<select id="d20plus-sheet">
 <option value="ogl">5th Edition (OGL by Roll20)</option>
 <option value="community">5th Edition (Community Contributed)</option>
-<!-- <option value="shaped">5th Edition Shaped (Community Contributed)</option> -->
+<option value="shaped">5th Edition Shaped (Community Contributed)</option>
 </select>
-
-<a class="btn" href="#" id="import-monster-button">Import Monsters</a>
+</p>
+<p>
+<h4>Monster Importing</h4>
+<label for="import-monster-url">Monster Data URL:</label>
+<input type="text" id="import-monster-url" value="`+monsterdataurl+`">
+<a class="btn" href="#" id="button-monsters-load">Import Monsters</a>
 </p>
 <p>
 <h4>Spell Importing</h4>
 <label for="import-spell-url">Spell Data URL:</label>
 <input type="text" id="import-spell-url" value="`+spelldataurl+`">
-
-<label>Data Type:</label>
-<select id="import-spell-datatype" value="json">
-<option value="json">JSON</option>
-<option value="xml">XML</option>
-</select>
-
-<a class="btn" href="#" id="import-spell-button">Import Spells</a>
+<a class="btn" href="#" id="button-spells-load">Import Spells</a>
 </p>
 <p>
 <h4>Item Importing</h4>
-Coming soon!
+<label for="import-items-url">Spell Data URL:</label>
+<input type="text" id="import-items-url" value="`+itemdataurl+`">
+<a class="btn" href="#" id="import-items-load">Import Items</a>
+</p>
+<p>
+<a class="btn" href="#" id="bind-drop-locations">Prepare Drag-and-Drop Spells/Items</a>
 </p>`;
 
 d20plus.cssRules = [
 	{
-		s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr",
+		s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr,#initiativewindow ul li span.macro",
 		r: "font-size: 25px;font-weight: bold;text-align: right;float: right;padding: 5px;width: 10%;min-height: 20px;"
 	},{
 		s: "#initiativewindow ul li span.editable input",
@@ -1494,6 +1978,7 @@ d20plus.cssRules = [
 ];
 
 d20plus.initiativeHeaders = `<div class="header">
+<span class="ui-button-text" style="display: none;">N</span>
 <span class="initiative" alt="Initiative" title="Initiative">Init</span>
 <span class="pp" alt="Passive Perception" title="Passive Perception">Pass</span>
 <span class="ac" alt="AC" title="AC">AC</span>
@@ -1504,6 +1989,11 @@ d20plus.initiativeHeaders = `<div class="header">
 d20plus.initiativeTemplate = `<script id="tmpl_initiativecharacter" type="text/html">
 <![CDATA[
 	<li class='token <$ if (this.layer == "gmlayer") { $>gmlayer<$ } $>' data-tokenid='<$!this.id$>' data-currentindex='<$!this.idx$>'>
+	<span alt='Sheet Macro' title='Sheet Macro' class='macro' style="display: none;">
+	<button type='button' class='ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons' role='button' aria-disabled='false'>
+	<span class='ui-button-text'>N</span>
+	</button>
+	</span>
 	<span alt='Initiative' title='Initiative' class='initiative <$ if (this.iseditable) { $>editable<$ } $>'>
 	<$!this.pr$>
 	</span>
