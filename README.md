@@ -7,5 +7,10 @@
 2. [Click here](https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js) to bring up the installer  
 3. Open up Roll20 and you're done! 
 
+## Drag-and-Drop Binding
+In order to drag-and-drop spells from the journal, you must first bind the handouts and the drop-accepting portionf of a sheet. Have the sheet(s) you want to drop the spells onto open, and hit the Bind button in the Journal tab (or the larger button in the Settings tab). After this, it should drag-and-drop without issue.
+
+The OGL sheet can be finnicky about this, but the Shaped sheet works without issues.
+
 ## License
 5etoolsR20 is licensed under the [MIT license](https://opensource.org/licenses/MIT).
