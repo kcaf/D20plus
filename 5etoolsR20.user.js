@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.4.0
+// @version      0.4.1
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -1212,7 +1212,6 @@ d20plus.spells.load = function (url) {
 			try {
 				d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
 				spelldata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
-				console.log(spelldata.compendium.spell.length);
 				var length = spelldata.compendium.spell.length;
 
 				// building list for checkboxes
@@ -1329,7 +1328,7 @@ d20plus.spells.import = function (data, overwritespells) {
 	d20plus.remaining++;
 	if (d20plus.timeout == 500) {
 		$("#d20plus-import").dialog("open");
-		$("#import-reminaing").text("d20plus.remaining");
+		$("#import-remaining").text("d20plus.remaining");
 	}
 	timeout = d20plus.timeout;
 	d20plus.timeout += 2500;
@@ -1377,6 +1376,7 @@ d20plus.spells.import = function (data, overwritespells) {
 		}, {
 			success: function (handout) {
 
+				// debugger;
 				if (!data.school) data.school = "A";
 				if (!data.range) data.range = "Self";
 				if (!data.duration) data.duration = "Instantaneous"
@@ -1402,7 +1402,7 @@ d20plus.spells.import = function (data, overwritespells) {
 					}
 				};
 
-				if (data.components.indexOf("M") > 0) {
+				if (data.components.indexOf("(") > 0) {
 					r20json.data["Material"] = data.components.split("(")[1].replace(")","");
 				}
 
@@ -1517,7 +1517,6 @@ d20plus.items.load = function (url) {
 			try {
 				d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
 				itemdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g,""));
-				console.log(itemdata.compendium.item.length);
 				var length = itemdata.compendium.item.length;
 
 				// building list for checkboxes
@@ -1629,7 +1628,7 @@ d20plus.items.import = function (data, overwriteitems) {
 	d20plus.remaining++;
 	if (d20plus.timeout == 500) {
 		$("#d20plus-import").dialog("open");
-		$("#import-reminaing").text("d20plus.remaining");
+		$("#import-remaining").text("d20plus.remaining");
 	}
 	timeout = d20plus.timeout;
 	d20plus.timeout += 2500;
@@ -1980,7 +1979,7 @@ d20plus.cssRules = [
 d20plus.initiativeHeaders = `<div class="header">
 <span class="ui-button-text" style="display: none;">N</span>
 <span class="initiative" alt="Initiative" title="Initiative">Init</span>
-<span class="pp" alt="Passive Perception" title="Passive Perception">Pass</span>
+<span class="pp" alt="Passive Perception" title="Passive Perception">PP</span>
 <span class="ac" alt="AC" title="AC">AC</span>
 <span class="cr" alt="CR" title="CR">CR</span>
 <span class="hp" alt="HP" title="HP">HP</span>
