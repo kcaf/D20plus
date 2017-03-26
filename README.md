@@ -7,6 +7,9 @@
 2. [Click here](https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js) to bring up the installer  
 3. Open up Roll20 and you're done! 
 
+## Mass-Importing
+While it is accessible, you should **not** try to import all stat blocks in at once! Only import the ones you absolutely need. Too many character sheets with all their attributes will slow down your campaign considerably, even for non-GMs.
+
 ## Drag-and-Drop Binding
 In order to drag-and-drop spells from the journal, you must first bind the handouts and the drop-accepting portion of a sheet. Have the sheet(s) you want to drop the spells onto open, and hit the Bind button in the Journal tab (or the larger button in the Settings tab). After this, it should drag-and-drop without issue.
 
