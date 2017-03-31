@@ -2,7 +2,7 @@
 // @name         D20Plus
 // @namespace    https://github.com/kcaf
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      2.10.3
+// @version      2.11.1
 // @updateURL    https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @downloadURL  https://github.com/kcaf/D20plus/raw/master/D20plus.user.js
 // @description  Enhance your Roll20 experience
@@ -246,6 +246,7 @@ var D20plus = function(version) {
 		$("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
 		$("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
 		$("#mysettings > .content a#d20plus-btn-im").on(window.mousedowntype, d20plus.buttonMonsterClicked);
+		$("#mysettings > .content a#d20plus-btn-ii").on(window.mousedowntype, d20plus.buttonItemClicked);
 
 		$("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
 		$("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
@@ -323,8 +324,19 @@ var D20plus = function(version) {
 		}
 	};
 
+	// Import items button click event
+	d20plus.buttonItemClicked = function() {
+		var url = window.prompt("Input the URL of the Item XML file");
+		if (url != null) {
+			d20plus.loadItemsXML(url);
+		}
+	};
+
 	// Fetch monster data from XML url and import it
 	d20plus.loadMonstersXML = function(url) {
+		var $span = $("#import-errors");
+		$span.text() == "0";
+
 		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
 		var x2js = new X2JS();
 		$.ajax({
@@ -333,7 +345,7 @@ var D20plus = function(version) {
 			dataType: "xml",
 			success: function (xml) {
 				try{
-					d20plus.log("Importing XML");
+					d20plus.log("Importing Monsters XML");
 					json = x2js.xml2json(xml);
 					console.log(json.compendium.monster.length);
 					var length = json.compendium.monster.length;
@@ -370,6 +382,86 @@ var D20plus = function(version) {
 				d20plus.log("> ERROR: " + msg);
 			}
 		});
+	};
+
+	// Fetch item data from XML url and import it
+	d20plus.loadItemsXML = function(url) {
+		var $span = $("#import-errors");
+		$span.text() == "0";
+
+		$("a.ui-tabs-anchor[href='#journal']").trigger("click");
+		var x2js = new X2JS();
+		$.ajax({
+			type: "GET",
+			url: url,
+			dataType: "xml",
+			success: function (xml) {
+				try{
+					d20plus.log("Importing Items XML");
+					json = x2js.xml2json(xml);
+					console.log(json.compendium.item.length);
+					var length = json.compendium.item.length;
+					var types = {};
+					$.each(json.compendium.item, function(i,v) {
+						try {
+
+							console.log("> " + (i+1) + "/" + length + " Attempting to import item [" + v.name + "]");
+							//d20plus.importItem(v);
+							types[v.type] = types[v.type] || {};
+							types[v.type][v.rarity] = types[v.type][v.rarity] ? types[v.type][v.rarity] + 1 : 1;
+							console.log("Types", types);
+						} catch (e) {
+							console.log("Error Importing!", e);
+							d20plus.addImportError(v.name);
+						}
+					});
+				} catch(e) {
+					console.log("> Exception ", e);
+				}
+			},
+			 error: function (jqXHR, exception) {
+				var msg = "";
+				if (jqXHR.status === 0) {
+					msg = "Could not connect.\n Check Network";
+				} else if (jqXHR.status == 404) {
+					msg = "Page not found [404]";
+				} else if (jqXHR.status == 500) {
+					msg = "Internal Server Error [500]";
+				} else if (exception === 'parsererror') {
+					msg = "XML parse failed";
+				} else if (exception === 'timeout') {
+					msg = "Timeout";
+				} else if (exception === 'abort') {
+					msg = "Request aborted";
+				} else {
+					msg = "Uncaught Error.\n" + jqXHR.responseText;
+				}
+				d20plus.log("> ERROR: " + msg);
+			}
+		});
+	};
+
+	// Item types
+	d20plus.getItemType = function (t) {
+		switch(t){
+			case "$": return "Treasure";
+			case "A": return "Ammunition";
+			case "G": return "General";
+			case "HA": return "Heavy Armor";
+			case "LA": return "Light Armor";
+			case "M": return "Melee";
+			case "MA": return "Medium Armor";
+			case "P": return "Potion";
+			case "R": return "Ranged";
+			case "RD": return "Rod";
+			case "RG": return "Ring";
+			case "S": return "Shield";
+			case "SC": return "Scroll";
+			case "ST": return "Staff";
+			case "W": return "Wonderous";
+			case "WD": return "Wand";
+			default: return "Unknown";
+		}
 	};
 
 	// Create monster character from js data object
@@ -790,7 +882,7 @@ var D20plus = function(version) {
 		}, timeout);
 	};
 
-	// Import dialog showing names of monsters failed to import
+	// Import dialog showing names of failed imports
 	d20plus.addImportError = function(name) {
 		var $span = $("#import-errors");
 		if($span.text() == "0"){
@@ -1020,6 +1112,7 @@ var D20plus = function(version) {
 		ogl: {
 			"CR": "@{npc_challenge}",
 			"AC": "@{ac}",
+			"NPCAC": "@{npc_ac}",
 			"HP": "@{hp}",
 			"PP": "@{passive_wisdom}"
 		},
@@ -1054,16 +1147,17 @@ var D20plus = function(version) {
 	d20plus.settingsHtml = `<hr>
 	<h3>D20Plus v` + d20plus.version + `</h3>
 	<p>
-		<label>Import <span style="color:red;">OGL Sheet ONLY!</span></label>
+		<label>Import <span style="color:red;font-style:italic;">5e OGL Sheet ONLY!</span></label>
 		<a class="btn" href="#" id="d20plus-btn-im">Import Monsters</a>
-	</p>
-	<p>
+		<a class="btn" href="#" id="d20plus-btn-ii">Import Items</a>
+	</p>`;
+	/*<p>
 		<label>Select your character sheet</label>
 		<select class="d20plus-sheet" style="width: 150px;">
 			<option value="ogl">5th Edition ( OGL by Roll20 )</option>
 			<option value="community">5th Edition (Community Contributed)</option>
 		</select>
-	</p>`;
+	</p>`;*/
 
 	d20plus.cssRules = [
 		{
@@ -1110,12 +1204,22 @@ var D20plus = function(version) {
 		<$ var token = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(this.id); $>
 		<$ var char = (token) ? token.character : null; $>
 		<$ if (char) { $>
+			<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
 			<$ var passive = char.autoCalcFormula('@{passive}') || char.autoCalcFormula('||PP||'); $>
 			<span class='pp' alt='Passive Perception' title='Passive Perception'><$!passive$></span>
-			<span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
-			<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
+			<span class='ac' alt='AC' title='AC'>
+			<$ if(npc && npc.get("current") == "1") { $>
+				<$!char.autoCalcFormula('||NPCAC||')$>
+			<$ } else { $>
+				<$!char.autoCalcFormula('||AC||')$>
+			<$ } $>
+			</span>
+			<span class='cr' alt='CR' title='CR'>
+			<$ if(npc && npc.get("current") == "1") { $>
+				<$!char.attribs.find(function(e) { return e.get("name").toLowerCase() === "npc_challenge" }).get("current")$>
+			<$ } $>
+			</span>
 			<span class='hp editable' alt='HP' title='HP'>
-			<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
 			<$ if(npc && npc.get("current") == "1") { $>
 				<$!token.attributes.bar3_value$>
 			<$ } else { $>
