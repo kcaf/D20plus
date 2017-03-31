@@ -23,6 +23,7 @@ Import compatible with DnDAppFiles Bestiary Compendium (XML).
 - ~~Monster Importer (as Character)~~ done
 - Spell Importer (as Handout)
 - Magic Item Importer (as Handout)
+- Add support for more character sheet options (eg. Shaped)
 - Want more? Me too! [Let's Chat](https://github.com/kcaf/D20plus/issues)
 
 ## License
