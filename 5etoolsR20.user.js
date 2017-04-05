@@ -2,7 +2,7 @@
 // @name         5etoolsR20
 // @namespace    https://github.com/5egmegaanon
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      0.5.0
+// @version      0.5.2
 // @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
@@ -67,6 +67,7 @@ var D20plus = function(version) {
 
         d20plus.log("> Add HTML");
         d20plus.addHTML();
+        d20plus.setSheet();
 
         d20plus.log("> Bind Graphics");
         d20.Campaign.pages.each(d20plus.bindGraphics);
@@ -305,15 +306,16 @@ var D20plus = function(version) {
     d20plus.addHTML = function() {
         $("#mysettings > .content").children("hr").first().before(d20plus.settingsHtml);
 
-        $("#mysettings > .content select#d20plus-sheet").on("change", d20plus.setSheet);
         $("#mysettings > .content a#button-monsters-load").on(window.mousedowntype, d20plus.monsters.button);
         $("#mysettings > .content a#button-spells-load").on(window.mousedowntype, d20plus.spells.button);
         $("#mysettings > .content a#import-items-load").on(window.mousedowntype, d20plus.items.button);
         $("#mysettings > .content a#bind-drop-locations").on(window.mousedowntype, d20plus.bindDropLocations);
 
         $("#initiativewindow .characterlist").before(d20plus.initiativeHeaders);
-        $("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
-        d20.Campaign.initiativewindow._rebuildInitiativeList();
+
+        d20plus.getInitTemplate();
+
+        d20.Campaign.initiativewindow.rebuildInitiativeList();
         d20plus.hpAllowEdit();
 
         d20.Campaign.initiativewindow.model.on("change:turnorder", function() {
@@ -495,19 +497,31 @@ $dmsDialog.dialog("open");
                 try {
                     d20plus.log("Importing Data (" + $("#import-datatype").val().toUpperCase() + ")");
                     monsterdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g, ""));
-                    console.log(monsterdata.compendium.monster.length);
+
                     var length = monsterdata.compendium.monster.length;
 
+                    monsterdata.compendium.monster.sort(function(a,b) {
+                      if (a.name < b.name) return -1;
+                      if (a.name > b.name) return 1;
+                      return 0;
+                    });
+
                     // building list for checkboxes
-                    $("#import-list").html("");
+                    $("#import-list .list").html("");
                     $.each(monsterdata.compendium.monster, function(i, v) {
                         try {
-                            $("#import-list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span>` + v.name + `</span></label>`);
+                            $("#import-list .list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span class="name">` + v.name + `</span></label>`);
                         } catch (e) {
                             console.log("Error building list!", e);
                             d20plus.addImportError(v.name);
                         }
                     });
+
+                    var options = {
+                      valueNames: [ 'name' ]
+                    }
+
+                    var importList = new List ("import-list", options);
 
                     $("#import-options label").hide();
                     $("#import-overwrite").parent().show();
@@ -517,13 +531,13 @@ $dmsDialog.dialog("open");
 
                     $("#d20plus-importlist input#importlist-selectall").unbind("click");
                     $("#d20plus-importlist input#importlist-selectall").bind("click", function() {
-                        $("#import-list input").prop("checked", $(this).prop("checked"));
+                        $("#import-list .list input").prop("checked", $(this).prop("checked"));
                     });
 
                     $("#d20plus-importlist button").unbind("click");
                     $("#d20plus-importlist button#importstart").bind("click", function() {
                         $("#d20plus-importlist").dialog("close");
-                        $("#import-list input").each(function() {
+                        $("#import-list .list input").each(function() {
                             if (!$(this).prop("checked")) return;
                             var monsternum = parseInt($(this).data("listid"));
                             var curmonster = monsterdata.compendium.monster[monsternum];
@@ -667,7 +681,6 @@ $dmsDialog.dialog("open");
                 success: function(character) {
                     /* OGL Sheet */
                     try {
-                        console.log(character);
 
                         var source = "";
                         var type = "";
@@ -809,6 +822,34 @@ $dmsDialog.dialog("open");
                             name: "npc_hpformula",
                             current: hpformula != null ? hpformula[1] || "" : ""
                         });
+                        data.npc_speed = data.speed;
+                        if (d20plus.sheet === "shaped") {
+                          data.npc_speed = data.npc_speed.toLowerCase();
+                          var match = data.npc_speed.match(/^\s*(\d+)\s?(ft\.?|m\.?)/);
+                          if (match && match[1]) {
+                            data.speed = match[1] + ' ' + match[2];
+                            character.attribs.create({
+                                name: "speed",
+                                current: match[1] + ' ' + match[2]
+                            });
+                          }
+                          data.npc_speed = data.speed;
+                          var regex = /(burrow|climb|fly|swim)\s+(\d+)\s?(ft\.?|m\.?)/g;
+                          var speeds = void 0;
+                          while ((speeds = regex.exec(data.npc_speed)) !== null) {
+                            character.attribs.create({
+                                name: "speed_"+speeds[1],
+                                current: speeds[2] + ' ' + speeds[3]
+                            });
+                          }
+                          if (data.npc_speed && data.npc_speed.includes('hover')) {
+                            character.attribs.create({
+                                name: "speed_fly_hover",
+                                current: 1
+                            });
+                          }
+                          data.npc_speed = '';
+                        }
                         character.attribs.create({
                             name: "npc_speed",
                             current: data.speed != null ? data.speed : ""
@@ -1664,23 +1705,44 @@ $dmsDialog.dialog("open");
 
     // Change character sheet formulas
     d20plus.setSheet = function() {
-        var r = /^[a-z]+$/,
-            s = $(this).val().match(r)[0];
-        d20plus.sheet = s in d20plus.formulas ? s : "ogl";
-        $("#tmpl_initiativecharacter").replaceWith(d20plus.getInitTemplate());
-        d20.Campaign.initiativewindow._rebuildInitiativeList();
-        d20plus.updateDifficulty();
-        d20plus.log("> Switched Character Sheet Template");
+
+        d20plus.sheet = "ogl";
+        if (d20.journal.customSheets.layouthtml.indexOf("shaped_d20") > 0) d20plus.sheet = "shaped";
+        if (d20.journal.customSheets.layouthtml.indexOf("DnD5e_Character_Sheet") > 0) d20plus.sheet = "community";
+
+        d20plus.log("> Switched Character Sheet Template to " + d20plus.sheet);
     };
 
     // Return Initiative Tracker template with formulas
     d20plus.getInitTemplate = function() {
-        var html = d20plus.initiativeTemplate;
-        _.each(d20plus.formulas[d20plus.sheet], function(v, i) {
-            html = html.replace("||" + i + "||", v);
-        });
-        return html;
+        var cachedFunction = d20.Campaign.initiativewindow.rebuildInitiativeList;
+        d20.Campaign.initiativewindow.rebuildInitiativeList = function() {
+            var html = d20plus.initiativeTemplate;
+            _.each(d20plus.formulas[d20plus.sheet], function(v, i) {
+                html = html.replace("||" + i + "||", v);
+            });
+            $("#tmpl_initiativecharacter").replaceWith(html);
+            var results = cachedFunction.apply(this, []);
+
+            setTimeout(function() {
+                    $(".initmacrobutton").unbind("click");
+                    $(".initmacrobutton").bind("click", function() {
+                        console.log("Macro button clicked");
+                        tokenid = $(this).parent().parent().data("tokenid");
+                        var token, char;
+                        var page = d20.Campaign.activePage();
+                        if (page) token = page.thegraphics.get(tokenid);
+                        if (token) char = token.character;
+                        if (char) {
+                              char.view.showDialog();
+                              // d20.textchat.doChatInput(`%{` + char.id + `|` + d20plus.formulas[d20plus.sheet]["macro"] + `}`)
+                            }
+                    });
+            }, 100);
+            return results;
+        }
     };
+
 
     // Import spell button was clicked
     // d20plus.buttonSpellClicked = function() {
@@ -1709,16 +1771,30 @@ $dmsDialog.dialog("open");
                     spelldata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g, ""));
                     var length = spelldata.compendium.spell.length;
 
+                    spelldata.compendium.spell.sort(function(a,b) {
+                      if (a.name < b.name) return -1;
+                      if (a.name > b.name) return 1;
+                      return 0;
+                    });
+
                     // building list for checkboxes
-                    $("#import-list").html("");
+                    $("#import-list .list").html("");
                     $.each(spelldata.compendium.spell, function(i, v) {
                         try {
-                            $("#import-list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span>` + v.name + `</span></label>`);
+                            var vname = v.name;
+                            if (v.level[0] === "P") vname += " (Psionics)";
+                            $("#import-list .list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span class="name">` + vname + `</span></label>`);
                         } catch (e) {
                             console.log("Error building list!", e);
                             d20plus.addImportError(v.name);
                         }
                     });
+
+                    var options = {
+                      valueNames: [ 'name' ]
+                    }
+
+                    var importList = new List ("import-list", options);
 
                     $("#import-options label").hide();
                     $("#import-overwrite").parent().show();
@@ -1728,7 +1804,7 @@ $dmsDialog.dialog("open");
 
                     $("#d20plus-importlist input#importlist-selectall").unbind("click");
                     $("#d20plus-importlist input#importlist-selectall").bind("click", function() {
-                        $("#import-list input").prop("checked", $(this).prop("checked"));
+                        $("#import-list .list input").prop("checked", $(this).prop("checked"));
                     });
 
                     $("#d20plus-importlist button").unbind("click");
@@ -1736,7 +1812,7 @@ $dmsDialog.dialog("open");
                         $("#d20plus-importlist").dialog("close");
                         var overwritespells = $("#import-overwrite").prop("checked");
 
-                        $("#import-list input").each(function() {
+                        $("#import-list .list input").each(function() {
                             if (!$(this).prop("checked")) return;
                             var spellnum = parseInt($(this).data("listid"));
                             var curspell = spelldata.compendium.spell[spellnum];
@@ -2042,16 +2118,28 @@ $dmsDialog.dialog("open");
                     itemdata = (datatype === "XML") ? x2js.xml2json(data) : JSON.parse(data.replace(/^var .* \= /g, ""));
                     var length = itemdata.compendium.item.length;
 
+                    itemdata.compendium.item.sort(function(a,b) {
+                      if (a.name < b.name) return -1;
+                      if (a.name > b.name) return 1;
+                      return 0;
+                    });
+
+
                     // building list for checkboxes
-                    $("#import-list").html("");
+                    $("#import-list .list").html("");
                     $.each(itemdata.compendium.item, function(i, v) {
                         try {
-                            $("#import-list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span>` + v.name + `</span></label>`);
+                            $("#import-list .list").append(`<label><input type="checkbox" data-listid="` + i + `"> <span class="name">` + v.name + `</span></label>`);
                         } catch (e) {
                             console.log("Error building list!", e);
                             d20plus.addImportError(v.name);
                         }
                     });
+                    var options = {
+                      valueNames: [ 'name' ]
+                    }
+
+                    var importList = new List ("import-list", options);
 
                     $("#import-options label").hide();
                     $("#import-overwrite").parent().show();
@@ -2061,7 +2149,7 @@ $dmsDialog.dialog("open");
 
                     $("#d20plus-importlist input#importlist-selectall").unbind("click");
                     $("#d20plus-importlist input#importlist-selectall").bind("click", function() {
-                        $("#import-list input").prop("checked", $(this).prop("checked"));
+                        $("#import-list .list input").prop("checked", $(this).prop("checked"));
                     });
 
                     $("#d20plus-importlist button").unbind("click");
@@ -2069,7 +2157,7 @@ $dmsDialog.dialog("open");
                         $("#d20plus-importlist").dialog("close");
                         var overwriteitems = $("#import-overwrite").prop("checked");
 
-                        $("#import-list input").each(function() {
+                        $("#import-list .list input").each(function() {
                             if (!$(this).prop("checked")) return;
                             var itemnum = parseInt($(this).data("listid"));
                             var curitem = itemdata.compendium.item[itemnum];
@@ -2390,33 +2478,44 @@ $dmsDialog.dialog("open");
         "ogl": {
             "CR": "@{npc_challenge}",
             "AC": "@{ac}",
+            "NPCAC": "@{npc_ac}",
             "HP": "@{hp}",
-            "PP": "@{passive_wisdom}"
+            "PP": "@{passive_wisdom}",
+            "macro": ""
         },
         "community": {
             "CR": "@{npc_challenge}",
             "AC": "@{AC}",
+            "NPCAC": "@{AC}",
             "HP": "@{HP}",
-            "PP": "10 + @{perception}"
+            "PP": "10 + @{perception}",
+            "macro": ""
         },
         "shaped": {
             "CR": "@{challenge}",
             "AC": "@{AC}",
+            "NPCAC": "@{AC}",
             "HP": "@{HP}",
             "PP": "@{repeating_skill_$11_passive}",
-            "macro": "%{shaped_statblock}"
+            "macro": "shaped_statblock"
         }
     };
 
-    d20plus.scripts = [{
+    d20plus.scripts = [
+      {
         name: "xml2json",
         url: "https://cdnjs.cloudflare.com/ajax/libs/x2js/1.2.0/xml2json.min.js"
-    }];
+      },
+      {
+        name: "listjs",
+        url: "https://raw.githubusercontent.com/javve/list.js/v1.5.0/dist/list.min.js"
+      }
+    ];
 
     d20plus.importListHTML = `<div id="d20plus-importlist" title="Import...">
 <p><input type="checkbox" title="Select all" id="importlist-selectall"></p>
 <p>
-<span id="import-list" style="max-height: 600px; overflow-y: scroll; display: block;"></span>
+<span id="import-list"><input class="search" autocomplete="off" placeholder="Search list..."><br><span class="list" style="max-height: 600px; overflow-y: scroll; display: block; margin-top: 1em;"></span></span>
 </p>
 <p id="import-options">
 <label><input type="checkbox" title="Import by source" id="import-monster-organizebysource"> Import by source instead of type?</label>
@@ -2454,15 +2553,6 @@ Errors: <span id="import-errors">0</span>
 </select>
 </p>
 <p>
-<h4>Tracker Improvements</h4>
-<label>Character Sheet:</label>
-<select id="d20plus-sheet">
-<option value="ogl">5th Edition (OGL by Roll20)</option>
-<option value="community">5th Edition (Community Contributed)</option>
-<option value="shaped">5th Edition Shaped (Community Contributed)</option>
-</select>
-</p>
-<p>
 <h4>Monster Importing</h4>
 <label for="import-monster-url">Monster Data URL:</label>
 <input type="text" id="import-monster-url" value="` + monsterdataurl + `">
@@ -2485,7 +2575,7 @@ Errors: <span id="import-errors">0</span>
 </p>`;
 
     d20plus.cssRules = [{
-        s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr,#initiativewindow ul li span.macro",
+        s: "#initiativewindow ul li span.initiative,#initiativewindow ul li span.ac,#initiativewindow ul li span.hp,#initiativewindow ul li span.pp,#initiativewindow ul li span.cr,#initiativewindow ul li span.initmacro",
         r: "font-size: 25px;font-weight: bold;text-align: right;float: right;padding: 5px;width: 10%;min-height: 20px;"
     }, {
         s: "#initiativewindow ul li span.editable input",
@@ -2508,10 +2598,13 @@ Errors: <span id="import-errors">0</span>
     }, {
         s: "#dmscreen-dialog iframe",
         r: "width: 100%;height: 100%;position: absolute;top: 0;left: 0;border: 0;"
+    }, {
+      s: ".token .cr,.header .cr",
+      r: "display: none!important;"
     }];
 
     d20plus.initiativeHeaders = `<div class="header">
-<span class="ui-button-text" style="display: none;">N</span>
+<span class="ui-button-text initmacro">Sheet</span>
 <span class="initiative" alt="Initiative" title="Initiative">Init</span>
 <span class="pp" alt="Passive Perception" title="Passive Perception">PP</span>
 <span class="ac" alt="AC" title="AC">AC</span>
@@ -2522,23 +2615,33 @@ Errors: <span id="import-errors">0</span>
     d20plus.initiativeTemplate = `<script id="tmpl_initiativecharacter" type="text/html">
 <![CDATA[
 	<li class='token <$ if (this.layer == "gmlayer") { $>gmlayer<$ } $>' data-tokenid='<$!this.id$>' data-currentindex='<$!this.idx$>'>
-	<span alt='Sheet Macro' title='Sheet Macro' class='macro' style="display: none;">
-	<button type='button' class='ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons' role='button' aria-disabled='false'>
-	<span class='ui-button-text'>N</span>
-	</button>
-	</span>
+    <span alt='Sheet Macro' title='Sheet Macro' class='initmacro'>
+    <button type='button' class='initmacrobutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only pictos bigbuttonwithicons' role='button' aria-disabled='false'>
+    <span class='ui-button-text'>N</span>
+    </button>
+    </span>
 	<span alt='Initiative' title='Initiative' class='initiative <$ if (this.iseditable) { $>editable<$ } $>'>
 	<$!this.pr$>
 	</span>
 	<$ var token = d20.Campaign.pages.get(d20.Campaign.activePage()).thegraphics.get(this.id); $>
 	<$ var char = (token) ? token.character : null; $>
 	<$ if (char) { $>
+    <$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
 		<$ var passive = char.autoCalcFormula('@{passive}') || char.autoCalcFormula('||PP||'); $>
 		<span class='pp' alt='Passive Perception' title='Passive Perception'><$!passive$></span>
-		<span class='ac' alt='AC' title='AC'><$!char.autoCalcFormula('||AC||')$></span>
-		<span class='cr' alt='CR' title='CR'><$!char.autoCalcFormula('||CR||')$></span>
+    <span class='ac' alt='AC' title='AC'>
+			<$ if(npc && npc.get("current") == "1") { $>
+				<$!char.autoCalcFormula('||NPCAC||')$>
+			<$ } else { $>
+				<$!char.autoCalcFormula('||AC||')$>
+			<$ } $>
+			</span>
+			<span class='cr' alt='CR' title='CR'>
+			<$ if(npc && npc.get("current") == "1") { $>
+				<$!char.attribs.find(function(e) { return e.get("name").toLowerCase() === "npc_challenge" }).get("current")$>
+			<$ } $>
+			</span>
 		<span class='hp editable' alt='HP' title='HP'>
-		<$ var npc = char.attribs.find(function(a){return a.get("name").toLowerCase() == "npc" }); $>
 		<$ if(npc && npc.get("current") == "1") { $>
 			<$!token.attributes.bar3_value$>
 			<$ } else { $>
