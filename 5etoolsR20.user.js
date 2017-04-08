@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         5etoolsR20
-// @namespace    https://github.com/5egmegaanon
+// @namespace    https://github.com/olorun
 // @license      MIT (https://opensource.org/licenses/MIT)
 // @version      0.5.2
-// @updateURL    https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
-// @downloadURL  https://github.com/5egmegaanon/5etoolsR20/raw/master/5etoolsR20.user.js
+// @updateURL    https://github.com/olorun/5etoolsR20/raw/master/5etoolsR20.user.js
+// @downloadURL  https://github.com/olorun/5etoolsR20/raw/master/5etoolsR20.user.js
 // @description  Enhance your Roll20 experience
-// @author       5egmegaanon
+// @author       olorun
 // @match        https://app.roll20.net/editor/
 // @grant        unsafeWindow
 // @run-at       document-start
@@ -16,9 +16,9 @@
 
 var D20plus = function(version) {
 
-    var monsterdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/bestiary.json";
-    var spelldataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/spells.json";
-    var itemdataurl = "https://raw.githubusercontent.com/5egmegaanon/5etools/master/data/items.json";
+    var monsterdataurl = "https://raw.githubusercontent.com/olorun/5etools/master/data/bestiary.json";
+    var spelldataurl = "https://raw.githubusercontent.com/olorun/5etools/master/data/spells.json";
+    var itemdataurl = "https://raw.githubusercontent.com/olorun/5etools/master/data/items.json";
 
     var d20plus = {
         sheet: "ogl",
@@ -695,7 +695,7 @@ $dmsDialog.dialog("open");
                         }
                         source = parseSource(source);
 
-												var avatar = "https://5egmegaanon.github.io/5etools/img/" + source + "/" + name + ".png";
+												var avatar = "https://olorun.github.io/5etools/img/" + source + "/" + name + ".png";
 
                         character.size = data.size;
                         character.name = name;
